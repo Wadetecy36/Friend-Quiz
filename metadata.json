@@ -1,0 +1,7 @@
+{
+  "name": "How Well Do You Know Me? Quiz & Admin Portal",
+  "description": "Interactive personal questionnaire with real-time auto-save, participant session persistence, and secure Supabase-powered admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
