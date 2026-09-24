@@ -20,6 +20,9 @@ import {
   FileSpreadsheet,
   Trophy,
   Bookmark,
+  Trash2,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -63,20 +66,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchResponses();
   }, []);
 
+  const [responseToDelete, setResponseToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
   const handleQuestionsUpdated = () => {
     setActiveQuestions(getActiveQuestions());
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to permanently delete responses for "${name}"?`)) {
-      return;
-    }
+  const handleDelete = (id: string, name: string) => {
+    setDeleteError(null);
+    setResponseToDelete({ id, name });
+  };
 
-    const res = await deleteResponseById(id);
-    if (res.success) {
-      setResponses((prev) => prev.filter((r) => r.id !== id));
-    } else {
-      alert(`Delete failed: ${res.error || 'Unknown error'}`);
+  const confirmDeleteResponse = async () => {
+    if (!responseToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const res = await deleteResponseById(responseToDelete.id);
+      if (res.success) {
+        setResponses((prev) => prev.filter((r) => r.id !== responseToDelete.id));
+        setResponseToDelete(null);
+      } else {
+        setDeleteError(`Delete failed: ${res.error || 'Unknown database error'}`);
+      }
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -318,6 +337,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )}
 
+          {deleteError && (
+            <div className="p-4 rounded-xl border border-rose-500/40 bg-rose-950/20 text-rose-300 font-mono text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{deleteError}</span>
+              </div>
+              <button
+                onClick={() => setDeleteError(null)}
+                className="p-1 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Responses Table */}
           <AdminTable
             responses={responses}
@@ -329,6 +363,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {activeTab === 'questions' && (
         <AdminQuestionManager onQuestionsUpdated={handleQuestionsUpdated} />
+      )}
+
+      {/* In-app Response Deletion Modal (No window.confirm) */}
+      {responseToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+          onClick={() => !isDeleting && setResponseToDelete(null)}
+        >
+          <div
+            className="w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
+            style={{
+              backgroundColor: '#13171F',
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              color: '#F1F5F9',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Permanently Delete Submission?</h3>
+                <p className="text-xs text-stone-400">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#1C222E] border border-white/10 text-xs space-y-1">
+              <span className="font-bold text-stone-300 block">Participant:</span>
+              <p className="text-stone-100 font-bold text-sm">{responseToDelete.name}</p>
+            </div>
+
+            <p className="text-xs text-stone-400 leading-relaxed">
+              Are you sure you want to permanently delete all answers and ranking metrics for this participant?
+            </p>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setResponseToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteResponse}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Deleting...' : 'Yes, Permanently Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

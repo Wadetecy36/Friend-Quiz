@@ -156,10 +156,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               setMode('signin');
               setError(null);
             }}
-            className={`flex-1 py-2 px-3 rounded-[14px] text-xs font-medium transition cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
               mode === 'signin'
-                ? 'bg-[#FF6B4A] text-white shadow-[0_4px_16px_rgba(255,107,74,0.35)]'
-                : 'text-[#B9A8C9] hover:text-[#FBF4EA]'
+                ? 'bg-orange-600 text-white shadow-md'
+                : 'text-stone-400 hover:text-stone-200'
             }`}
           >
             Sign In
@@ -170,10 +170,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               setMode('signup');
               setError(null);
             }}
-            className={`flex-1 py-2 px-3 rounded-[14px] text-xs font-medium transition cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
               mode === 'signup'
-                ? 'bg-[#FF6B4A] text-white shadow-[0_4px_16px_rgba(255,107,74,0.35)]'
-                : 'text-[#B9A8C9] hover:text-[#FBF4EA]'
+                ? 'bg-orange-600 text-white shadow-md'
+                : 'text-stone-400 hover:text-stone-200'
             }`}
           >
             Sign Up
@@ -264,7 +264,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                 <button
                   type="button"
                   onClick={() => handleFillSuggestedEmail('mensahdenzel285@gmail.com')}
-                  className="text-xs text-[#FF6B4A] hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-orange-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
                 >
                   <Sparkles className="w-3 h-3" /> Use Denzel's email
                 </button>

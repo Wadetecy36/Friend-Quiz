@@ -258,6 +258,107 @@
   );
 }
 
+/* ---------------------------------------------------------
+   UTILITY CLASSES & DESIGN COMPONENT STYLES
+--------------------------------------------------------- */
+.plum-card {
+  background-color: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-card);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.soft-glow {
+  box-shadow: 0 0 25px rgba(249, 115, 22, 0.12), 0 10px 30px -10px rgba(0, 0, 0, 0.8);
+}
+
+.cream-input {
+  width: 100%;
+  background-color: var(--ds-surface-elevated);
+  border: 1px solid var(--ds-border-sec);
+  border-radius: 14px;
+  padding: 0.65rem 0.9rem;
+  color: var(--ds-text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cream-input:focus {
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--ds-accent);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: var(--ds-radius-btn);
+  padding: 0.65rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+  border: 1px solid rgba(249, 115, 22, 0.5);
+}
+
+.btn-primary:hover {
+  background-color: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.45);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--ds-surface-elevated);
+  border: 1px solid var(--ds-border-sec);
+  color: var(--ds-text-primary);
+  font-weight: 600;
+  border-radius: var(--ds-radius-btn);
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--ds-accent);
+  background-color: var(--ds-surface-subtle);
+  transform: translateY(-1px);
+}
+
+.avatar-gradient {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+}
+
+.tag-butter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #fdba74;
+}
+
 /* Backward compatibility with existing utility classes */
 .shadow-brutal {
   box-shadow: var(--ds-shadow) !important;

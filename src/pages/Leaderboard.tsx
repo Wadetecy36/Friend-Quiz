@@ -119,11 +119,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   };
 
   const handleResetAnswerKey = () => {
-    if (confirm('Reset official answer key back to default answers for Denzel?')) {
-      resetAnswerKey();
-      setAnswerKey(getStoredAnswerKey());
-      setShowAnswerKeyModal(false);
-    }
+    resetAnswerKey();
+    setAnswerKey(getStoredAnswerKey());
+    setShowAnswerKeyModal(false);
   };
 
   return (
