@@ -1,16 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Question,
   QuestionType,
   MIN_QUESTIONS_COUNT,
   MAX_QUESTIONS_COUNT,
-  DEFAULT_QUESTIONS,
-  getActiveQuestionsCount,
-  setActiveQuestionsCount,
-  getStoredQuestions,
-  saveStoredQuestions,
-  resetQuestionsToDefault,
 } from '../lib/questions';
+import { useQuestions } from '../hooks/useQuestions';
 import { useDesignSystem } from '../context/DesignSystemContext';
 import {
   Plus,
@@ -23,8 +19,8 @@ import {
   RotateCcw,
   CheckCircle2,
   FileQuestion,
-  AlertTriangle,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 interface AdminQuestionManagerProps {
@@ -83,18 +79,30 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
   onQuestionsUpdated,
 }) => {
   const { theme } = useDesignSystem();
-  const [questionsList, setQuestionsList] = useState<Question[]>(getStoredQuestions());
-  const [activeCount, setActiveCount] = useState<number>(getActiveQuestionsCount());
+  const {
+    questionsList,
+    activeCount,
+    isLoading: isHookLoading,
+    error: hookError,
+    setError: setHookError,
+    saveQuestion,
+    deleteQuestion,
+    reorderQuestions,
+    changeActiveCount,
+    resetAllToDefaults,
+  } = useQuestions();
+
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [saveBanner, setSaveBanner] = useState(false);
 
-  // In-app modals instead of blocked window.confirm / window.alert
+  // In-app modals portaled to body (immune to any parent transform/clipping)
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [formValidationError, setFormValidationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state for creating / editing
   const [formLabel, setFormLabel] = useState('');
@@ -110,15 +118,25 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
   const [formExplanation, setFormExplanation] = useState('');
   const [newOptionInput, setNewOptionInput] = useState('');
 
+  // Lock body scroll whenever ANY modal is active
+  const isAnyModalOpen = Boolean(isCreating || editingQuestion || questionToDelete || showResetConfirm);
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isAnyModalOpen]);
+
   const triggerSaveNotification = () => {
     setSaveBanner(true);
     setTimeout(() => setSaveBanner(false), 2500);
   };
 
   const handleActiveCountChange = (newCount: number) => {
-    const clamped = Math.max(MIN_QUESTIONS_COUNT, Math.min(MAX_QUESTIONS_COUNT, newCount));
-    setActiveCount(clamped);
-    setActiveQuestionsCount(clamped);
+    changeActiveCount(newCount);
     triggerSaveNotification();
     onQuestionsUpdated();
   };
@@ -157,7 +175,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
     setIsCreating(false);
   };
 
-  const handleSaveQuestion = (e: React.FormEvent) => {
+  const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormValidationError(null);
 
@@ -196,7 +214,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
     if (formType === 'select') {
       const validOptions = formOptions.map((o) => o.trim()).filter(Boolean);
       if (validOptions.length < 2) {
-        setFormValidationError('Please provide at least 2 options for multiple choice.');
+        setFormValidationError('Please provide at least 2 choices for multiple choice.');
         return;
       }
       updatedQuestion.options = validOptions;
@@ -223,23 +241,20 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       ];
     }
 
-    let newList: Question[];
-    if (editingQuestion) {
-      newList = questionsList.map((q) => (q.id === editingQuestion.id ? updatedQuestion : q));
-    } else {
-      newList = [...questionsList, updatedQuestion];
-      if (newList.length <= MAX_QUESTIONS_COUNT && activeCount < newList.length) {
-        setActiveCount(newList.length);
-        setActiveQuestionsCount(newList.length);
+    setIsSubmitting(true);
+    try {
+      const res = await saveQuestion(updatedQuestion, Boolean(editingQuestion));
+      if (res.success) {
+        setEditingQuestion(null);
+        setIsCreating(false);
+        triggerSaveNotification();
+        onQuestionsUpdated();
+      } else {
+        setFormValidationError(res.error || 'Failed to save question');
       }
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setQuestionsList(newList);
-    saveStoredQuestions(newList);
-    setEditingQuestion(null);
-    setIsCreating(false);
-    triggerSaveNotification();
-    onQuestionsUpdated();
   };
 
   const promptDeleteQuestion = (q: Question) => {
@@ -251,41 +266,31 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
     setQuestionToDelete(q);
   };
 
-  const confirmDeleteQuestion = () => {
+  const confirmDeleteQuestion = async () => {
     if (!questionToDelete) return;
-    const id = questionToDelete.id;
-
-    const newList = questionsList.filter((q) => q.id !== id);
-    setQuestionsList(newList);
-    saveStoredQuestions(newList);
-
-    if (activeCount > newList.length) {
-      const nextCount = Math.max(MIN_QUESTIONS_COUNT, newList.length);
-      setActiveCount(nextCount);
-      setActiveQuestionsCount(nextCount);
+    setIsSubmitting(true);
+    try {
+      const res = await deleteQuestion(questionToDelete.id);
+      if (res.success) {
+        setQuestionToDelete(null);
+        triggerSaveNotification();
+        onQuestionsUpdated();
+      } else {
+        setActionError(res.error || 'Failed to delete question');
+        setQuestionToDelete(null);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setQuestionToDelete(null);
-    triggerSaveNotification();
-    onQuestionsUpdated();
   };
 
   const handleMove = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= questionsList.length) return;
-
-    const copy = [...questionsList];
-    const temp = copy[index];
-    copy[index] = copy[targetIndex];
-    copy[targetIndex] = temp;
-
-    setQuestionsList(copy);
-    saveStoredQuestions(copy);
+    reorderQuestions(index, direction);
     triggerSaveNotification();
     onQuestionsUpdated();
   };
 
-  const handleAddPreset = (preset: Omit<Question, 'id'>) => {
+  const handleAddPreset = async (preset: Omit<Question, 'id'>) => {
     if (questionsList.length >= MAX_QUESTIONS_COUNT) {
       setActionError(`Maximum limit of ${MAX_QUESTIONS_COUNT} questions reached.`);
       return;
@@ -296,19 +301,18 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     };
 
-    const updated = [...questionsList, newQ];
-    setQuestionsList(updated);
-    saveStoredQuestions(updated);
-    setShowPresets(false);
-    triggerSaveNotification();
-    onQuestionsUpdated();
+    const res = await saveQuestion(newQ, false);
+    if (res.success) {
+      setShowPresets(false);
+      triggerSaveNotification();
+      onQuestionsUpdated();
+    } else {
+      setActionError(res.error || 'Failed to add preset');
+    }
   };
 
   const confirmResetToDefault = () => {
-    resetQuestionsToDefault();
-    setQuestionsList(DEFAULT_QUESTIONS);
-    setActiveCount(12);
-    setActiveQuestionsCount(12);
+    resetAllToDefaults();
     setShowResetConfirm(false);
     triggerSaveNotification();
     onQuestionsUpdated();
@@ -348,14 +352,17 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       )}
 
       {/* Dismissible Error Banner */}
-      {actionError && (
+      {(actionError || hookError) && (
         <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{actionError}</span>
+            <span>{actionError || hookError}</span>
           </div>
           <button
-            onClick={() => setActionError(null)}
+            onClick={() => {
+              setActionError(null);
+              setHookError(null);
+            }}
             className="p-1 hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -376,9 +383,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
           style={{ borderColor: theme.colors.borderSecondary }}
         >
           <div className="space-y-1">
-            <span className="tag-butter">
-              Quiz Customizer
-            </span>
+            <span className="tag-butter">Quiz Customizer</span>
             <h2
               className="text-xl sm:text-2xl font-bold mt-1 tracking-tight"
               style={{
@@ -683,7 +688,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   <button
                     onClick={() => handleMove(index, 'up')}
                     disabled={index === 0}
-                    className="p-2 rounded-xl border transition disabled:opacity-30 disabled:cursor-not-allowed hover:border-orange-500/40"
+                    className="p-2 rounded-xl border transition disabled:opacity-30 disabled:cursor-not-allowed hover:border-orange-500/40 cursor-pointer"
                     style={{
                       backgroundColor: theme.colors.surfaceElevated,
                       borderColor: theme.colors.borderSecondary,
@@ -697,7 +702,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   <button
                     onClick={() => handleMove(index, 'down')}
                     disabled={index === questionsList.length - 1}
-                    className="p-2 rounded-xl border transition disabled:opacity-30 disabled:cursor-not-allowed hover:border-orange-500/40"
+                    className="p-2 rounded-xl border transition disabled:opacity-30 disabled:cursor-not-allowed hover:border-orange-500/40 cursor-pointer"
                     style={{
                       backgroundColor: theme.colors.surfaceElevated,
                       borderColor: theme.colors.borderSecondary,
@@ -736,432 +741,478 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* SOLID MODAL: CREATE / EDIT QUESTION (FIXES BLUR / TRANSPARENCY BUG)     */}
+      {/* PORTAL MODAL: CREATE / EDIT QUESTION (DETACHED FROM PARENT TRANSFORMS)    */}
       {/* ========================================================================= */}
-      {(isCreating || editingQuestion) && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto"
-          onClick={() => {
-            setIsCreating(false);
-            setEditingQuestion(null);
-          }}
-        >
+      {(isCreating || editingQuestion) &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="relative w-full max-w-xl p-6 sm:p-8 max-h-[88vh] overflow-y-auto rounded-2xl border shadow-2xl space-y-5 my-auto text-left"
-            style={{
-              backgroundColor: '#13171F',
-              borderColor: 'rgba(249, 115, 22, 0.4)',
-              color: '#F1F5F9',
+            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-6"
+            style={{ minHeight: '100vh', WebkitOverflowScrolling: 'touch' }}
+            onClick={() => {
+              if (!isSubmitting) {
+                setIsCreating(false);
+                setEditingQuestion(null);
+              }
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-md">
-                  <FileQuestion className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3
-                    className="text-lg sm:text-xl font-bold tracking-tight text-white"
-                    style={{ fontFamily: theme.typography.displayFont }}
-                  >
-                    {editingQuestion ? 'Edit Question & Answer' : 'Create Custom Question'}
-                  </h3>
-                  <p className="text-xs text-stone-400">
-                    {editingQuestion ? 'Update question text and official answers' : 'Add a new question to your active quiz bank'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingQuestion(null);
+            <div className="flex min-h-full items-center justify-center py-4">
+              <div
+                className="relative w-full max-w-xl rounded-2xl border shadow-2xl p-6 sm:p-8 space-y-5 text-left"
+                style={{
+                  backgroundColor: '#13171F',
+                  borderColor: 'rgba(249, 115, 22, 0.4)',
+                  boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95)',
+                  color: '#F1F5F9',
                 }}
-                className="p-2 rounded-xl bg-white/[0.05] border border-white/10 hover:border-orange-500/50 text-stone-300 hover:text-white transition cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Inline Validation Error Banner */}
-            {formValidationError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{formValidationError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveQuestion} className="space-y-4 text-xs text-left">
-              {/* Question Label */}
-              <div>
-                <label className="block text-stone-300 mb-1.5 font-bold text-xs">
-                  Question Prompt <span className="text-orange-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formLabel}
-                  onChange={(e) => setFormLabel(e.target.value)}
-                  placeholder="e.g. What is my dream travel destination?"
-                  className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2.5 text-stone-100 placeholder-stone-500 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
-                />
-              </div>
-
-              {/* Subtitle / Hint */}
-              <div>
-                <label className="block text-stone-300 mb-1.5 font-medium text-xs">
-                  Description / Hint (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="e.g. Think of somewhere warm with incredible food"
-                  className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2.5 text-stone-100 placeholder-stone-500 text-xs focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
-                />
-              </div>
-
-              {/* Question Type */}
-              <div>
-                <label className="block text-stone-300 mb-1.5 font-bold text-xs">
-                  Question Format / Type
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['select', 'text', 'scale'] as QuestionType[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setFormType(t);
-                        if (t === 'select' && formOptions.length > 0) {
-                          setFormCorrectAnswer(formOptions[0]);
-                        } else if (t === 'scale') {
-                          setFormCorrectAnswer(8);
-                        } else if (t === 'text') {
-                          setFormCorrectAnswer('');
-                        }
-                      }}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                        formType === t
-                          ? 'bg-orange-600 text-white border-orange-500 shadow-md'
-                          : 'bg-[#1C222E] border-white/10 hover:border-orange-500/40 text-stone-300'
-                      }`}
-                    >
-                      {t === 'select' ? 'Multiple Choice' : t === 'text' ? 'Open Text' : 'Rating Scale'}
-                    </button>
-                  ))}
+                {/* Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-md">
+                      <FileQuestion className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3
+                        className="text-lg sm:text-xl font-bold tracking-tight text-white"
+                        style={{ fontFamily: theme.typography.displayFont }}
+                      >
+                        {editingQuestion ? 'Edit Question & Answer' : 'Create Custom Question'}
+                      </h3>
+                      <p className="text-xs text-stone-400">
+                        {editingQuestion
+                          ? 'Update question text and official answers'
+                          : 'Add a new question to your active quiz bank'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setIsCreating(false);
+                      setEditingQuestion(null);
+                    }}
+                    className="p-2 rounded-xl bg-white/[0.05] border border-white/10 hover:border-orange-500/50 text-stone-300 hover:text-white transition cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
 
-              {/* TYPE: SELECT */}
-              {formType === 'select' && (
-                <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-stone-200 font-bold text-xs">
-                      Answer Choices & Official Answer:
-                    </label>
-                    <span className="text-[11px] text-orange-400 font-mono">
-                      Select radio to set correct
-                    </span>
+                {/* Inline Validation Error Banner */}
+                {formValidationError && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{formValidationError}</span>
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    {formOptions.map((opt, oIdx) => {
-                      const isCorrect = String(formCorrectAnswer) === opt;
-                      return (
-                        <div
-                          key={oIdx}
-                          onClick={() => setFormCorrectAnswer(opt)}
-                          className={`p-3 rounded-xl flex items-center justify-between gap-2 cursor-pointer transition border ${
-                            isCorrect
-                              ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-200'
-                              : 'bg-[#13171F] border-white/5 hover:border-white/15 text-stone-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="radio"
-                              name="correctAnswerSelect"
-                              checked={isCorrect}
-                              onChange={() => setFormCorrectAnswer(opt)}
-                              className="accent-emerald-500 cursor-pointer"
-                            />
-                            <span className="font-medium text-xs">{opt}</span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {isCorrect && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 font-bold font-mono">
-                                Correct
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveOption(opt);
-                              }}
-                              className="p-1 text-stone-400 hover:text-rose-400 cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Add option input */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="text"
-                      value={newOptionInput}
-                      onChange={(e) => setNewOptionInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddOption();
-                        }
-                      }}
-                      placeholder="Add an option choice..."
-                      className="flex-1 bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddOption}
-                      className="px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs cursor-pointer transition"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* TYPE: TEXT */}
-              {formType === 'text' && (
-                <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
+                <form onSubmit={handleSaveQuestion} className="space-y-4 text-xs text-left">
+                  {/* Question Label */}
                   <div>
-                    <label className="block text-stone-300 mb-1 font-bold text-xs">
-                      Official Correct Answer <span className="text-orange-400">*</span>
+                    <label className="block text-stone-300 mb-1.5 font-bold text-xs">
+                      Question Prompt <span className="text-orange-400">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      value={String(formCorrectAnswer)}
-                      onChange={(e) => setFormCorrectAnswer(e.target.value)}
-                      placeholder="e.g. Kwame"
-                      className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                      value={formLabel}
+                      onChange={(e) => setFormLabel(e.target.value)}
+                      placeholder="e.g. What is my dream travel destination?"
+                      className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2.5 text-stone-100 placeholder-stone-500 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                     />
                   </div>
 
+                  {/* Subtitle / Hint */}
                   <div>
-                    <label className="block text-stone-300 mb-1 font-medium text-xs">
-                      Accepted Aliases / Nicknames (Comma-separated)
+                    <label className="block text-stone-300 mb-1.5 font-medium text-xs">
+                      Description / Hint (Optional)
                     </label>
                     <input
                       type="text"
-                      value={formAlternatives}
-                      onChange={(e) => setFormAlternatives(e.target.value)}
-                      placeholder="e.g. kwame, kofi, kwesi, denzel"
-                      className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
+                      placeholder="e.g. Think of somewhere warm with incredible food"
+                      className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2.5 text-stone-100 placeholder-stone-500 text-xs focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                     />
-                    <span className="text-[11px] text-stone-400 mt-1 block">
-                      Matches case-insensitively and allows common alternate spellings.
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* TYPE: SCALE */}
-              {formType === 'scale' && (
-                <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-stone-300 mb-1 text-xs">Min Value</label>
-                      <input
-                        type="number"
-                        value={formMin}
-                        onChange={(e) => setFormMin(parseInt(e.target.value, 10))}
-                        className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-stone-300 mb-1 text-xs">Max Value</label>
-                      <input
-                        type="number"
-                        value={formMax}
-                        onChange={(e) => setFormMax(parseInt(e.target.value, 10))}
-                        className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs"
-                      />
-                    </div>
                   </div>
 
+                  {/* Question Type */}
                   <div>
-                    <label className="block text-stone-300 mb-1 text-xs font-bold">
-                      Target Correct Rating (Numeric) <span className="text-orange-400">*</span>
+                    <label className="block text-stone-300 mb-1.5 font-bold text-xs">
+                      Question Format / Type
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['select', 'text', 'scale'] as QuestionType[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setFormType(t);
+                            if (t === 'select' && formOptions.length > 0) {
+                              setFormCorrectAnswer(formOptions[0]);
+                            } else if (t === 'scale') {
+                              setFormCorrectAnswer(8);
+                            } else if (t === 'text') {
+                              setFormCorrectAnswer('');
+                            }
+                          }}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                            formType === t
+                              ? 'bg-orange-600 text-white border-orange-500 shadow-md'
+                              : 'bg-[#1C222E] border-white/10 hover:border-orange-500/40 text-stone-300'
+                          }`}
+                        >
+                          {t === 'select' ? 'Multiple Choice' : t === 'text' ? 'Open Text' : 'Rating Scale'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TYPE: SELECT */}
+                  {formType === 'select' && (
+                    <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-stone-200 font-bold text-xs">
+                          Answer Choices & Official Answer:
+                        </label>
+                        <span className="text-[11px] text-orange-400 font-mono">
+                          Select radio to set correct
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {formOptions.map((opt, oIdx) => {
+                          const isCorrect = String(formCorrectAnswer) === opt;
+                          return (
+                            <div
+                              key={oIdx}
+                              onClick={() => setFormCorrectAnswer(opt)}
+                              className={`p-3 rounded-xl flex items-center justify-between gap-2 cursor-pointer transition border ${
+                                isCorrect
+                                  ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-200'
+                                  : 'bg-[#13171F] border-white/5 hover:border-white/15 text-stone-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="radio"
+                                  name="correctAnswerSelect"
+                                  checked={isCorrect}
+                                  onChange={() => setFormCorrectAnswer(opt)}
+                                  className="accent-emerald-500 cursor-pointer"
+                                />
+                                <span className="font-medium text-xs">{opt}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {isCorrect && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 font-bold font-mono">
+                                    Correct
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveOption(opt);
+                                  }}
+                                  className="p-1 text-stone-400 hover:text-rose-400 cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Add option input */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={newOptionInput}
+                          onChange={(e) => setNewOptionInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddOption();
+                            }
+                          }}
+                          placeholder="Add an option choice..."
+                          className="flex-1 bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddOption}
+                          className="px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs cursor-pointer transition"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TYPE: TEXT */}
+                  {formType === 'text' && (
+                    <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
+                      <div>
+                        <label className="block text-stone-300 mb-1 font-bold text-xs">
+                          Official Correct Answer <span className="text-orange-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={String(formCorrectAnswer)}
+                          onChange={(e) => setFormCorrectAnswer(e.target.value)}
+                          placeholder="e.g. Kwame"
+                          className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-stone-300 mb-1 font-medium text-xs">
+                          Accepted Aliases / Nicknames (Comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          value={formAlternatives}
+                          onChange={(e) => setFormAlternatives(e.target.value)}
+                          placeholder="e.g. kwame, kofi, kwesi, denzel"
+                          className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                        />
+                        <span className="text-[11px] text-stone-400 mt-1 block">
+                          Matches case-insensitively and allows common alternate spellings.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TYPE: SCALE */}
+                  {formType === 'scale' && (
+                    <div className="p-4 rounded-xl bg-[#1C222E] border border-white/10 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-stone-300 mb-1 text-xs">Min Value</label>
+                          <input
+                            type="number"
+                            value={formMin}
+                            onChange={(e) => setFormMin(parseInt(e.target.value, 10))}
+                            className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-stone-300 mb-1 text-xs">Max Value</label>
+                          <input
+                            type="number"
+                            value={formMax}
+                            onChange={(e) => setFormMax(parseInt(e.target.value, 10))}
+                            className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-stone-300 mb-1 text-xs font-bold">
+                          Target Correct Rating (Numeric) <span className="text-orange-400">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={formMin}
+                          max={formMax}
+                          value={Number(formCorrectAnswer)}
+                          onChange={(e) => setFormCorrectAnswer(parseInt(e.target.value, 10))}
+                          className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                        />
+                        <span className="text-[11px] text-stone-400 mt-1 block">
+                          Participants within ±1 point will be counted as correct.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lore Explanation */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-medium text-xs">
+                      Fun Lore / Explanation (Shown in Results)
                     </label>
                     <input
-                      type="number"
-                      min={formMin}
-                      max={formMax}
-                      value={Number(formCorrectAnswer)}
-                      onChange={(e) => setFormCorrectAnswer(parseInt(e.target.value, 10))}
-                      className="w-full bg-[#13171F] border border-white/10 rounded-xl px-3 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
+                      type="text"
+                      value={formExplanation}
+                      onChange={(e) => setFormExplanation(e.target.value)}
+                      placeholder="e.g. Because nothing beats fresh sushi at 2 AM!"
+                      className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
                     />
-                    <span className="text-[11px] text-stone-400 mt-1 block">
-                      Participants within ±1 point will be counted as correct.
-                    </span>
+                  </div>
+
+                  {/* Submit / Cancel Buttons */}
+                  <div className="pt-4 border-t border-white/[0.08] flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        setIsCreating(false);
+                        setEditingQuestion(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-white/10 bg-[#1C222E] text-stone-300 hover:text-white font-medium text-xs cursor-pointer transition disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="btn-primary text-xs py-2.5 px-5 font-bold shadow-lg flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <span>{editingQuestion ? 'Update Question' : 'Save Question'}</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* ========================================================================= */}
+      {/* PORTAL MODAL: DELETE QUESTION (DETACHED FROM PARENT TRANSFORMS)           */}
+      {/* ========================================================================= */}
+      {questionToDelete &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-sm p-4"
+            style={{ minHeight: '100vh', WebkitOverflowScrolling: 'touch' }}
+            onClick={() => !isSubmitting && setQuestionToDelete(null)}
+          >
+            <div className="flex min-h-full items-center justify-center py-4">
+              <div
+                className="relative w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
+                style={{
+                  backgroundColor: '#13171F',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95)',
+                  color: '#F1F5F9',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Delete Question?</h3>
+                    <p className="text-xs text-stone-400">This action cannot be undone.</p>
                   </div>
                 </div>
-              )}
 
-              {/* Lore Explanation */}
-              <div>
-                <label className="block text-stone-300 mb-1 font-medium text-xs">
-                  Fun Lore / Explanation (Shown in Results)
-                </label>
-                <input
-                  type="text"
-                  value={formExplanation}
-                  onChange={(e) => setFormExplanation(e.target.value)}
-                  placeholder="e.g. Because nothing beats fresh sushi at 2 AM!"
-                  className="w-full bg-[#1C222E] border border-white/10 rounded-xl px-3.5 py-2 text-stone-200 text-xs focus:outline-none focus:border-orange-500"
-                />
-              </div>
+                <div className="p-3.5 rounded-xl bg-[#1C222E] border border-white/10 text-xs space-y-1">
+                  <span className="font-bold text-stone-300 block">Question:</span>
+                  <p className="text-stone-300 italic">"{questionToDelete.label}"</p>
+                </div>
 
-              {/* Submit / Cancel Buttons */}
-              <div className="pt-4 border-t border-white/[0.08] flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingQuestion(null);
-                  }}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 bg-[#1C222E] text-stone-300 hover:text-white font-medium text-xs cursor-pointer transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary text-xs py-2.5 px-5 font-bold shadow-lg"
-                >
-                  {editingQuestion ? 'Update Question' : 'Save Question'}
-                </button>
+                <p className="text-xs text-stone-400 leading-relaxed">
+                  Are you sure you want to remove this question from your quiz bank? If it is currently active, future participants will no longer see it.
+                </p>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setQuestionToDelete(null)}
+                    className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={confirmDeleteQuestion}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Yes, Delete Question</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* ========================================================================= */}
-      {/* IN-APP CONFIRMATION MODAL: DELETE QUESTION (NO BROWSER WINDOW.CONFIRM)   */}
+      {/* PORTAL MODAL: RESET DEFAULTS (DETACHED FROM PARENT TRANSFORMS)            */}
       {/* ========================================================================= */}
-      {questionToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-          onClick={() => setQuestionToDelete(null)}
-        >
+      {showResetConfirm &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
-            style={{
-              backgroundColor: '#13171F',
-              borderColor: 'rgba(239, 68, 68, 0.4)',
-              color: '#F1F5F9',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-sm p-4"
+            style={{ minHeight: '100vh', WebkitOverflowScrolling: 'touch' }}
+            onClick={() => setShowResetConfirm(false)}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Delete Question?</h3>
-                <p className="text-xs text-stone-400">This action cannot be undone.</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#1C222E] border border-white/10 text-xs space-y-1">
-              <span className="font-bold text-stone-200 block">Question:</span>
-              <p className="text-stone-300 italic">"{questionToDelete.label}"</p>
-            </div>
-
-            <p className="text-xs text-stone-400 leading-relaxed">
-              Are you sure you want to remove this question from your quiz bank? If it is currently active, future participants will no longer see it.
-            </p>
-
-            <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setQuestionToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer"
+            <div className="flex min-h-full items-center justify-center py-4">
+              <div
+                className="relative w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
+                style={{
+                  backgroundColor: '#13171F',
+                  borderColor: 'rgba(249, 115, 22, 0.4)',
+                  boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95)',
+                  color: '#F1F5F9',
+                }}
+                onClick={(e) => e.stopPropagation()}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteQuestion}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Yes, Delete Question</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Reset to Default Questions?</h3>
+                    <p className="text-xs text-stone-400">Restore Denzel's original 20 questions</p>
+                  </div>
+                </div>
 
-      {/* ========================================================================= */}
-      {/* IN-APP CONFIRMATION MODAL: RESET DEFAULTS (NO BROWSER WINDOW.CONFIRM)    */}
-      {/* ========================================================================= */}
-      {showResetConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-          onClick={() => setShowResetConfirm(false)}
-        >
-          <div
-            className="w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
-            style={{
-              backgroundColor: '#13171F',
-              borderColor: 'rgba(249, 115, 22, 0.4)',
-              color: '#F1F5F9',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
-                <RotateCcw className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Reset to Default Questions?</h3>
-                <p className="text-xs text-stone-400">Restore Denzel's original 20 questions</p>
+                <p className="text-xs text-stone-300 leading-relaxed">
+                  This will restore the original default questions and reset the active quiz length to 12. Any custom questions you added will be reverted.
+                </p>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirm(false)}
+                    className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmResetToDefault}
+                    className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Yes, Reset Defaults</span>
+                  </button>
+                </div>
               </div>
             </div>
-
-            <p className="text-xs text-stone-300 leading-relaxed">
-              This will restore the original default questions and reset the active quiz length to 12. Any custom questions you added will be reverted.
-            </p>
-
-            <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmResetToDefault}
-                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Yes, Reset Defaults</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

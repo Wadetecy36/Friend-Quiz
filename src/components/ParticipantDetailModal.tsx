@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   CheckCircle2,
@@ -70,20 +71,33 @@ export const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
     return true;
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in select-none">
-      {/* Click outside to close backdrop */}
-      <div className="absolute inset-0" onClick={onClose} />
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
 
-      {/* Modal Dialog Window */}
-      <div
-        className="relative max-w-md w-full max-h-[90vh] flex flex-col border rounded-3xl shadow-2xl overflow-hidden transition-all z-10 animate-note-entrance"
-        style={{
-          backgroundColor: theme?.colors?.surface || '#0c0f17',
-          borderColor: 'rgba(249, 115, 22, 0.35)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 25px rgba(249, 115, 22, 0.15)',
-        }}
-      >
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 select-none"
+      style={{ minHeight: '100vh', WebkitOverflowScrolling: 'touch' }}
+      onClick={onClose}
+    >
+      <div className="flex min-h-full items-center justify-center py-4">
+        {/* Modal Dialog Window */}
+        <div
+          className="relative max-w-md w-full max-h-[90vh] flex flex-col border rounded-3xl shadow-2xl overflow-hidden transition-all z-10"
+          style={{
+            backgroundColor: theme?.colors?.surface || '#0c0f17',
+            borderColor: 'rgba(249, 115, 22, 0.35)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 25px rgba(249, 115, 22, 0.15)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header Bar */}
         <div
           className="p-5 sm:p-6 border-b flex items-center justify-between relative bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent"
@@ -422,5 +436,7 @@ export const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>,
+  document.body
+);
 };

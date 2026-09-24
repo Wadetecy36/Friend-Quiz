@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ResponseRecord, calculateCompletion, exportToCSV } from '../lib/utils';
 import { getAllResponses, deleteResponseById } from '../lib/supabase';
 import {
@@ -69,6 +70,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [responseToDelete, setResponseToDelete] = useState<{ id: string; name: string } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (responseToDelete) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [responseToDelete]);
 
   const handleQuestionsUpdated = () => {
     setActiveQuestions(getActiveQuestions());
@@ -365,62 +376,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <AdminQuestionManager onQuestionsUpdated={handleQuestionsUpdated} />
       )}
 
-      {/* In-app Response Deletion Modal (No window.confirm) */}
-      {responseToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-          onClick={() => !isDeleting && setResponseToDelete(null)}
-        >
+      {/* In-app Response Deletion Modal (Portaled to body, immune to parent transforms) */}
+      {responseToDelete &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
-            style={{
-              backgroundColor: '#13171F',
-              borderColor: 'rgba(239, 68, 68, 0.4)',
-              color: '#F1F5F9',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-sm p-4"
+            style={{ minHeight: '100vh', WebkitOverflowScrolling: 'touch' }}
+            onClick={() => !isDeleting && setResponseToDelete(null)}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Permanently Delete Submission?</h3>
-                <p className="text-xs text-stone-400">This action cannot be undone.</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#1C222E] border border-white/10 text-xs space-y-1">
-              <span className="font-bold text-stone-300 block">Participant:</span>
-              <p className="text-stone-100 font-bold text-sm">{responseToDelete.name}</p>
-            </div>
-
-            <p className="text-xs text-stone-400 leading-relaxed">
-              Are you sure you want to permanently delete all answers and ranking metrics for this participant?
-            </p>
-
-            <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setResponseToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+            <div className="flex min-h-full items-center justify-center py-4">
+              <div
+                className="relative w-full max-w-md p-6 rounded-2xl border shadow-2xl space-y-4 text-left"
+                style={{
+                  backgroundColor: '#13171F',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95)',
+                  color: '#F1F5F9',
+                }}
+                onClick={(e) => e.stopPropagation()}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={confirmDeleteResponse}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeleting ? 'Deleting...' : 'Yes, Permanently Delete'}</span>
-              </button>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Permanently Delete Submission?</h3>
+                    <p className="text-xs text-stone-400">This action cannot be undone.</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#1C222E] border border-white/10 text-xs space-y-1">
+                  <span className="font-bold text-stone-300 block">Participant:</span>
+                  <p className="text-stone-100 font-bold text-sm">{responseToDelete.name}</p>
+                </div>
+
+                <p className="text-xs text-stone-400 leading-relaxed">
+                  Are you sure you want to permanently delete all answers and ranking metrics for this participant?
+                </p>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => setResponseToDelete(null)}
+                    className="px-4 py-2 rounded-xl bg-[#1C222E] border border-white/10 text-stone-300 hover:text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={confirmDeleteResponse}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeleting ? 'Deleting...' : 'Yes, Permanently Delete'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
