@@ -14,8 +14,9 @@ import { Leaderboard } from './pages/Leaderboard';
 import { LoadingScreen } from './components/LoadingScreen';
 import { useParticipant } from './hooks/useParticipant';
 import { useAdminAuth } from './hooks/useAdminAuth';
+import { DesignSystemProvider } from './context/DesignSystemContext';
 
-export default function App() {
+function QuizApp() {
   const {
     participantName,
     answers,
@@ -121,7 +122,7 @@ export default function App() {
     return (
       <LoadingScreen
         creatorName="DENZEL"
-        minDuration={800}
+        minDuration={2400}
         onFinish={() => setIsInitialBoot(false)}
       />
     );
@@ -135,7 +136,7 @@ export default function App() {
           message={actionLoading.message}
           submessage={actionLoading.submessage}
           creatorName="DENZEL"
-          minDuration={400}
+          minDuration={1200}
         />
       )}
 
@@ -152,7 +153,7 @@ export default function App() {
         }}
         onPreviewLoadingScreen={() => {
           setActionLoading({
-            message: 'How well do you know me?',
+            message: 'HotSeat: Denzel',
             submessage: 'Testing Denzel’s custom loading experience...',
           });
           setTimeout(() => {
@@ -287,5 +288,13 @@ export default function App() {
       )}
     </Layout>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <DesignSystemProvider>
+      <QuizApp />
+    </DesignSystemProvider>
   );
 }

@@ -78,6 +78,24 @@ function escapeCSV(value: unknown): string {
 }
 
 /**
+ * Deterministic avatar generator based on participant name
+ */
+export const AVATAR_OPTIONS = [
+  '⚡', '🦊', '🚀', '🔥', '💎', '🎮', '🥑', '🎯',
+  '🎧', '👾', '🌟', '🦄', '☕', '🍕', '🧠', '🕶️'
+];
+
+export function getParticipantAvatar(name: string): string {
+  if (!name) return '👤';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_OPTIONS.length;
+  return AVATAR_OPTIONS[index];
+}
+
+/**
  * Generates and triggers browser download of responses as CSV
  */
 export function exportToCSV(responses: ResponseRecord[], questionsList: Question[]): void {

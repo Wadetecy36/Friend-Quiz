@@ -17,17 +17,13 @@ import {
   ArrowUp,
   ArrowDown,
   Edit3,
-  Check,
   X,
   Sliders,
   Sparkles,
   RotateCcw,
   CheckCircle2,
-  HelpCircle,
-  Hash,
   ListOrdered,
   FileQuestion,
-  AlignLeft,
 } from 'lucide-react';
 
 interface AdminQuestionManagerProps {
@@ -220,7 +216,6 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       newList = questionsList.map((q) => (q.id === editingQuestion.id ? updatedQuestion : q));
     } else {
       newList = [...questionsList, updatedQuestion];
-      // Automatically expand active count if new question extends beyond current
       if (newList.length <= MAX_QUESTIONS_COUNT && activeCount < newList.length) {
         setActiveCount(newList.length);
         setActiveQuestionsCount(newList.length);
@@ -326,87 +321,86 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-left">
       {/* Save Notification */}
       {saveBanner && (
-        <div className="fixed top-20 right-6 z-50 p-3 bg-[#3D8F70] text-white border-2 border-stone-900 rounded-2xl shadow-brutal text-xs font-mono font-bold flex items-center gap-2 animate-bounce">
-          <CheckCircle2 className="w-4 h-4 stroke-[3]" />
-          <span>Questions & quiz settings saved!</span>
+        <div className="fixed top-20 right-6 z-50 p-3.5 bg-[#FF6B4A] text-white rounded-[20px] shadow-[0_4px_20px_rgba(255,107,74,0.4)] text-xs font-medium flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-[#FFD35C]" />
+          <span>Questions & quiz length saved!</span>
         </div>
       )}
 
       {/* Control Banner: Quiz Length Stepper & Actions */}
-      <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-6 shadow-brutal space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b-2 border-stone-200">
-          <div>
-            <div className="font-mono text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-stone-700" />
-              Quiz Size & Question Customizer
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-stone-900 mt-1">
-              Active Quiz Length: <span className="text-[#3D8F70]">{activeCount} Questions</span>
+      <div className="plum-card soft-glow p-6 sm:p-8 space-y-5 text-left">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
+          <div className="space-y-1">
+            <span className="tag-butter">
+              Quiz Customizer
+            </span>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#FBF4EA] mt-1">
+              Active Quiz Length: <span className="text-[#FFD35C]">{activeCount} Questions</span>
             </h2>
-            <p className="text-xs text-stone-600 mt-0.5">
-              Participants will be asked the first <strong>{activeCount}</strong> questions in your list (Min: {MIN_QUESTIONS_COUNT}, Max: {MAX_QUESTIONS_COUNT}).
+            <p className="text-xs text-[#B9A8C9]">
+              Participants will answer the first <strong>{activeCount}</strong> questions in your bank ({MIN_QUESTIONS_COUNT} min, {MAX_QUESTIONS_COUNT} max).
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={openCreateModal}
-              className="px-4 py-2.5 rounded-2xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white font-bold text-xs shadow-brutal-sm flex items-center gap-1.5 cursor-pointer transition"
+              className="btn-primary text-xs py-2.5 px-4"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Plus className="w-4 h-4" />
               <span>Add Custom Question</span>
             </button>
 
             <button
               onClick={() => setShowPresets(!showPresets)}
-              className="px-3.5 py-2.5 rounded-2xl border-2 border-stone-900 bg-[#F9C84E] hover:bg-[#eab332] text-stone-900 font-bold text-xs shadow-brutal-sm flex items-center gap-1.5 cursor-pointer transition"
+              className="btn-secondary text-xs py-2.5 px-3.5"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Idea Library</span>
+              <Sparkles className="w-4 h-4 text-[#FFD35C]" />
+              <span>Ideas Library</span>
             </button>
           </div>
         </div>
 
         {/* Question Count Stepper & Quick Presets */}
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAF7F0] p-4 rounded-2xl border border-stone-900">
-            <div className="font-mono text-xs text-stone-800">
-              <span className="font-bold">Set Quiz Size (5 – 20):</span>
-              <span className="block text-[11px] text-stone-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.04] p-4 rounded-[20px]">
+            <div className="text-xs text-[#FBF4EA]">
+              <span className="font-semibold block">Set Quiz Size (5 – 20):</span>
+              <span className="text-xs text-[#B9A8C9]">
                 Total questions in your bank: {questionsList.length}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <input
                 type="range"
                 min={MIN_QUESTIONS_COUNT}
                 max={Math.min(MAX_QUESTIONS_COUNT, questionsList.length)}
                 value={activeCount}
                 onChange={(e) => handleActiveCountChange(parseInt(e.target.value, 10))}
-                className="w-32 sm:w-48 accent-[#3D8F70] cursor-pointer"
+                className="w-32 sm:w-48 accent-[#FF6B4A] cursor-pointer"
               />
-              <span className="font-mono font-black text-sm text-stone-900 px-3 py-1 bg-white border border-stone-900 rounded-xl">
+              <span className="font-display font-bold text-sm text-[#FFD35C] px-3 py-1 bg-white/[0.08] rounded-[12px]">
                 {activeCount}
               </span>
             </div>
           </div>
 
           {/* Quick preset buttons */}
-          <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-            <span className="text-stone-500 font-bold text-[11px]">Quick presets:</span>
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-[#8C789B]">Quick presets:</span>
             {[5, 8, 10, 12, 15, 20].map((num) => (
               <button
                 key={num}
                 disabled={num > questionsList.length}
                 onClick={() => handleActiveCountChange(num)}
-                className={`px-2.5 py-1 rounded-xl border border-stone-900 transition cursor-pointer text-xs ${
+                className={`px-3 py-1 rounded-[12px] transition cursor-pointer text-xs font-medium ${
                   activeCount === num
-                    ? 'bg-stone-900 text-white font-black'
-                    : 'bg-white hover:bg-stone-100 text-stone-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed'
+                    ? 'bg-[#FF6B4A] text-white shadow-[0_2px_10px_rgba(255,107,74,0.3)]'
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] text-[#B9A8C9] disabled:opacity-40 disabled:cursor-not-allowed'
                 }`}
               >
                 {num} Qs
@@ -415,10 +409,10 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
             <button
               onClick={handleResetToDefault}
-              className="ml-auto text-[11px] font-mono font-bold text-stone-500 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition"
+              className="ml-auto text-xs text-[#B9A8C9] hover:text-[#FF6B4A] flex items-center gap-1 cursor-pointer transition"
               title="Reset questions to Denzel's 20 default questions"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Defaults</span>
             </button>
           </div>
@@ -427,41 +421,41 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
       {/* Preset Ideas Drawer */}
       {showPresets && (
-        <div className="p-5 rounded-[24px] border-2 border-stone-900 bg-[#FAF7F0] shadow-brutal space-y-3">
+        <div className="plum-card p-6 space-y-4 text-left">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600" />
-              <h3 className="font-black text-sm text-stone-900">
+              <Sparkles className="w-4 h-4 text-[#FFD35C]" />
+              <h3 className="font-display font-bold text-sm text-[#FBF4EA]">
                 Preset Question Ideas (Click to Add):
               </h3>
             </div>
             <button
               onClick={() => setShowPresets(false)}
-              className="p-1 text-stone-500 hover:text-stone-900"
+              className="btn-secondary p-1.5"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             {PRESET_IDEAS.map((idea, idx) => (
               <div
                 key={idx}
-                className="p-3 bg-white border border-stone-900 rounded-xl space-y-1.5 flex flex-col justify-between"
+                className="p-3.5 rounded-[18px] bg-white/[0.04] space-y-2 flex flex-col justify-between"
               >
                 <div>
-                  <div className="font-bold text-stone-900">{idea.label}</div>
-                  <div className="text-[11px] text-stone-500">{idea.description}</div>
-                  <div className="text-[10px] text-[#3D8F70] font-bold mt-1">
+                  <div className="font-semibold text-[#FBF4EA]">{idea.label}</div>
+                  <div className="text-xs text-[#B9A8C9]">{idea.description}</div>
+                  <div className="text-xs text-[#FFD35C] font-medium mt-1">
                     Correct: {String(idea.correctAnswer)}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleAddPreset(idea)}
-                  className="mt-2 w-full py-1.5 px-3 rounded-lg border border-stone-900 bg-[#FAF7F0] hover:bg-[#3D8F70] hover:text-white font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1"
+                  className="mt-2 w-full py-2 px-3 rounded-[12px] bg-white/[0.08] hover:bg-[#FF6B4A] hover:text-white text-[#FBF4EA] font-medium text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Plus className="w-3 h-3" /> Add to Quiz
+                  <Plus className="w-3.5 h-3.5" /> Add to Quiz
                 </button>
               </div>
             ))}
@@ -472,11 +466,11 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
       {/* Question Cards List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <h3 className="font-black text-base text-stone-900 flex items-center gap-2">
-            <ListOrdered className="w-4 h-4 text-stone-700" />
+          <h3 className="font-display font-bold text-base text-[#FBF4EA] flex items-center gap-2">
+            <ListOrdered className="w-4 h-4 text-[#FFD35C]" />
             Questions Ordered List ({questionsList.length} Total)
           </h3>
-          <span className="font-mono text-xs text-stone-500 font-bold">
+          <span className="text-xs text-[#B9A8C9]">
             Top {activeCount} active in quiz
           </span>
         </div>
@@ -487,60 +481,52 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
           return (
             <div
               key={q.id}
-              className={`border-[2.5px] border-stone-900 rounded-2xl p-4 sm:p-5 shadow-brutal transition ${
-                isActive ? 'bg-[#FFFDF9]' : 'bg-[#F5F2EB] opacity-65'
+              className={`plum-card p-5 transition-colors ${
+                isActive ? 'bg-[#241533]' : 'bg-[#1C1027] opacity-65'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
+                <div className="flex items-start gap-3.5 min-w-0">
                   {/* Order Number Badge */}
                   <div
-                    className={`w-9 h-9 rounded-xl border-2 border-stone-900 flex items-center justify-center font-black text-sm flex-shrink-0 ${
-                      isActive ? 'bg-[#F9C84E] text-stone-900' : 'bg-stone-300 text-stone-600'
+                    className={`w-9 h-9 rounded-[14px] flex items-center justify-center font-display font-bold text-sm shrink-0 ${
+                      isActive ? 'avatar-gradient text-[#241533]' : 'bg-white/[0.08] text-[#8C789B]'
                     }`}
                   >
                     #{index + 1}
                   </div>
 
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 space-y-1.5 text-left">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-black text-base text-stone-900">
+                      <span className="font-display font-bold text-base text-[#FBF4EA]">
                         {q.label}
                       </span>
-                      <span
-                        className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-900 uppercase ${
-                          q.type === 'select'
-                            ? 'bg-blue-100 text-blue-900'
-                            : q.type === 'scale'
-                            ? 'bg-purple-100 text-purple-900'
-                            : 'bg-amber-100 text-amber-900'
-                        }`}
-                      >
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/[0.08] text-[#B9A8C9] uppercase">
                         {q.type}
                       </span>
                       {isActive ? (
-                        <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8F5E9] text-[#1B5E20] border border-stone-900">
-                          Active in Quiz
+                        <span className="tag-butter text-[11px] py-0.5 px-2">
+                          Active in quiz
                         </span>
                       ) : (
-                        <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-600">
-                          Inactive (Bank only)
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/[0.05] text-[#8C789B]">
+                          Bank only
                         </span>
                       )}
                     </div>
 
                     {q.description && (
-                      <p className="text-xs text-stone-600">{q.description}</p>
+                      <p className="text-xs text-[#B9A8C9]">{q.description}</p>
                     )}
 
                     {/* Correct Answer Display */}
-                    <div className="pt-1.5 font-mono text-xs flex items-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-stone-700">Official Correct:</span>
-                      <span className="px-2 py-0.5 rounded-lg bg-[#3D8F70] text-white font-bold">
+                    <div className="pt-1 text-xs flex items-center gap-2 flex-wrap">
+                      <span className="text-[#8C789B]">Official Correct:</span>
+                      <span className="px-2 py-0.5 rounded-[10px] bg-emerald-500/20 text-emerald-200 font-semibold">
                         {String(q.correctAnswer ?? 'Not set')}
                       </span>
                       {q.explanation && (
-                        <span className="text-[11px] text-stone-500 italic">
+                        <span className="text-xs text-[#8C789B] italic">
                           ({q.explanation})
                         </span>
                       )}
@@ -548,14 +534,14 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
                     {/* Options list if select */}
                     {q.type === 'select' && q.options && (
-                      <div className="pt-1 flex flex-wrap gap-1 font-mono text-[11px]">
+                      <div className="pt-1 flex flex-wrap gap-1.5 text-xs">
                         {q.options.map((opt) => (
                           <span
                             key={opt}
-                            className={`px-2 py-0.5 rounded-md border text-[10px] ${
+                            className={`px-2.5 py-0.5 rounded-[10px] text-[11px] ${
                               String(q.correctAnswer) === opt
-                                ? 'bg-emerald-100 border-emerald-600 text-emerald-900 font-bold'
-                                : 'bg-white border-stone-300 text-stone-600'
+                                ? 'bg-[#FFD35C]/20 text-[#FFD35C] font-semibold'
+                                : 'bg-white/[0.04] text-[#B9A8C9]'
                             }`}
                           >
                             {opt}
@@ -566,12 +552,12 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Question Actions (Up, Down, Edit, Delete) */}
-                <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Question Actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => handleMove(index, 'up')}
                     disabled={index === 0}
-                    className="p-1.5 rounded-lg border border-stone-900 hover:bg-stone-100 text-stone-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="btn-secondary p-2 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Move up"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -580,7 +566,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   <button
                     onClick={() => handleMove(index, 'down')}
                     disabled={index === questionsList.length - 1}
-                    className="p-1.5 rounded-lg border border-stone-900 hover:bg-stone-100 text-stone-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="btn-secondary p-2 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Move down"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -588,8 +574,8 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
                   <button
                     onClick={() => openEditModal(q)}
-                    className="p-1.5 rounded-lg border border-stone-900 hover:bg-stone-100 text-stone-800 cursor-pointer"
-                    title="Edit question & answer"
+                    className="btn-secondary p-2"
+                    title="Edit question"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
@@ -597,7 +583,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   <button
                     onClick={() => handleDelete(q.id, q.label)}
                     disabled={questionsList.length <= MIN_QUESTIONS_COUNT}
-                    className="p-1.5 rounded-lg border border-stone-900 hover:bg-rose-100 text-rose-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="p-2 rounded-[14px] bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Delete question"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -611,14 +597,14 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
       {/* Create / Edit Question Modal */}
       {(isCreating || editingQuestion) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-4">
-          <div className="bg-[#FFFDF9] border-[3px] border-stone-900 rounded-[28px] max-w-xl w-full p-6 sm:p-8 shadow-brutal max-h-[90vh] overflow-y-auto space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-stone-200">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-[#F9C84E] border-2 border-stone-900 flex items-center justify-center font-black">
-                  <FileQuestion className="w-5 h-5 text-stone-900" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="plum-card soft-glow max-w-xl w-full p-7 sm:p-9 max-h-[90vh] overflow-y-auto space-y-5 text-left">
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 avatar-gradient text-[#241533]">
+                  <FileQuestion className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-black text-stone-900">
+                <h3 className="text-xl font-display font-bold text-[#FBF4EA]">
                   {editingQuestion ? 'Edit Question & Answer' : 'Create Custom Question'}
                 </h3>
               </div>
@@ -627,16 +613,16 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   setIsCreating(false);
                   setEditingQuestion(null);
                 }}
-                className="p-1.5 rounded-xl border border-stone-900 hover:bg-stone-100 text-stone-800"
+                className="btn-secondary p-2"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuestion} className="space-y-4 font-mono text-xs">
+            <form onSubmit={handleSaveQuestion} className="space-y-4 text-xs text-left">
               {/* Question Label */}
               <div>
-                <label className="block text-stone-800 font-bold uppercase mb-1">
+                <label className="block text-[#B9A8C9] mb-1.5 font-medium">
                   Question Prompt *
                 </label>
                 <input
@@ -645,13 +631,13 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   value={formLabel}
                   onChange={(e) => setFormLabel(e.target.value)}
                   placeholder="e.g. What is my dream destination?"
-                  className="w-full bg-[#FAF7F0] border-2 border-stone-900 rounded-xl px-3.5 py-2.5 font-bold text-stone-900 focus:outline-none focus:bg-white"
+                  className="cream-input text-xs py-2.5"
                 />
               </div>
 
               {/* Subtitle / Hint */}
               <div>
-                <label className="block text-stone-800 font-bold uppercase mb-1">
+                <label className="block text-[#B9A8C9] mb-1.5 font-medium">
                   Description / Hint (Optional)
                 </label>
                 <input
@@ -659,13 +645,13 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="e.g. Think of somewhere warm and sunny"
-                  className="w-full bg-[#FAF7F0] border border-stone-900 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:bg-white"
+                  className="cream-input text-xs py-2.5"
                 />
               </div>
 
               {/* Question Type */}
               <div>
-                <label className="block text-stone-800 font-bold uppercase mb-1">
+                <label className="block text-[#B9A8C9] mb-1.5 font-medium">
                   Question Type
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -683,8 +669,10 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                           setFormCorrectAnswer('');
                         }
                       }}
-                      className={`py-2 px-3 rounded-xl border-2 border-stone-900 font-bold uppercase text-[11px] transition cursor-pointer ${
-                        formType === t ? 'bg-stone-900 text-white' : 'bg-white text-stone-800 hover:bg-stone-100'
+                      className={`py-2 px-3 rounded-[14px] text-xs font-medium transition cursor-pointer ${
+                        formType === t
+                          ? 'bg-[#FF6B4A] text-white shadow-[0_2px_10px_rgba(255,107,74,0.3)]'
+                          : 'bg-white/[0.05] hover:bg-white/[0.1] text-[#B9A8C9]'
                       }`}
                     >
                       {t === 'select' ? 'Multiple Choice' : t === 'text' ? 'Open Text' : 'Rating Scale'}
@@ -695,13 +683,13 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
               {/* TYPE: SELECT */}
               {formType === 'select' && (
-                <div className="p-4 rounded-xl border-2 border-stone-900 bg-[#FAF7F0] space-y-3">
+                <div className="p-4 rounded-[20px] bg-white/[0.04] space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="font-bold text-stone-900">
-                      Options & Select the Correct Answer:
+                    <label className="text-[#FBF4EA] font-medium">
+                      Options & Set Correct Answer:
                     </label>
-                    <span className="text-[10px] text-stone-500">
-                      Click circle to set correct answer
+                    <span className="text-[11px] text-[#8C789B]">
+                      Select radio for correct answer
                     </span>
                   </div>
 
@@ -712,27 +700,27 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                         <div
                           key={oIdx}
                           onClick={() => setFormCorrectAnswer(opt)}
-                          className={`p-2.5 rounded-xl border-2 flex items-center justify-between gap-2 cursor-pointer transition ${
+                          className={`p-3 rounded-[16px] flex items-center justify-between gap-2 cursor-pointer transition ${
                             isCorrect
-                              ? 'bg-emerald-50 border-emerald-700 shadow-sm'
-                              : 'bg-white border-stone-400'
+                              ? 'bg-emerald-500/20 text-[#FBF4EA]'
+                              : 'bg-white/[0.04] text-[#B9A8C9]'
                           }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <input
                               type="radio"
                               name="correctAnswerSelect"
                               checked={isCorrect}
                               onChange={() => setFormCorrectAnswer(opt)}
-                              className="accent-[#3D8F70] cursor-pointer"
+                              className="accent-[#FF6B4A] cursor-pointer"
                             />
-                            <span className="font-bold text-stone-900">{opt}</span>
+                            <span className="font-medium text-xs">{opt}</span>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             {isCorrect && (
-                              <span className="text-[10px] font-black uppercase text-[#1B5E20] bg-emerald-100 px-2 py-0.5 rounded-full">
-                                Correct Answer
+                              <span className="text-[10px] text-emerald-300 font-semibold">
+                                Correct
                               </span>
                             )}
                             <button
@@ -741,7 +729,7 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                                 e.stopPropagation();
                                 handleRemoveOption(opt);
                               }}
-                              className="p-1 text-stone-400 hover:text-rose-600"
+                              className="p-1 text-[#8C789B] hover:text-rose-400"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -764,12 +752,12 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                         }
                       }}
                       placeholder="Add an option..."
-                      className="flex-1 bg-white border border-stone-900 rounded-xl px-3 py-2 text-stone-900"
+                      className="flex-1 cream-input text-xs py-2 px-3"
                     />
                     <button
                       type="button"
                       onClick={handleAddOption}
-                      className="px-3 py-2 rounded-xl border border-stone-900 bg-stone-900 text-white font-bold cursor-pointer"
+                      className="btn-secondary text-xs py-2 px-3"
                     >
                       Add
                     </button>
@@ -779,9 +767,9 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
               {/* TYPE: TEXT */}
               {formType === 'text' && (
-                <div className="p-4 rounded-xl border-2 border-stone-900 bg-[#FAF7F0] space-y-3">
+                <div className="p-4 rounded-[20px] bg-white/[0.04] space-y-3">
                   <div>
-                    <label className="block text-stone-800 font-bold uppercase mb-1">
+                    <label className="block text-[#B9A8C9] mb-1 font-medium">
                       Official Correct Answer *
                     </label>
                     <input
@@ -790,23 +778,23 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                       value={String(formCorrectAnswer)}
                       onChange={(e) => setFormCorrectAnswer(e.target.value)}
                       placeholder="e.g. Kwame"
-                      className="w-full bg-white border border-stone-900 rounded-xl px-3 py-2 font-bold text-stone-900"
+                      className="cream-input text-xs py-2.5"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-stone-800 font-bold uppercase mb-1">
-                      Accepted Alternatives / Aliases (Comma-separated)
+                    <label className="block text-[#B9A8C9] mb-1 font-medium">
+                      Accepted Aliases (Comma-separated)
                     </label>
                     <input
                       type="text"
                       value={formAlternatives}
                       onChange={(e) => setFormAlternatives(e.target.value)}
                       placeholder="e.g. kwame, kofi, kwesi, denzel"
-                      className="w-full bg-white border border-stone-900 rounded-xl px-3 py-2 text-stone-900"
+                      className="cream-input text-xs py-2.5"
                     />
-                    <span className="text-[10px] text-stone-500 mt-0.5 block">
-                      Matches case-insensitively and allows common abbreviations or spellings.
+                    <span className="text-[11px] text-[#8C789B] mt-1 block">
+                      Matches case-insensitively and allows nicknames.
                     </span>
                   </div>
                 </div>
@@ -814,51 +802,30 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
               {/* TYPE: SCALE */}
               {formType === 'scale' && (
-                <div className="p-4 rounded-xl border-2 border-stone-900 bg-[#FAF7F0] space-y-3">
+                <div className="p-4 rounded-[20px] bg-white/[0.04] space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-stone-800 font-bold mb-1">Min Value</label>
+                      <label className="block text-[#B9A8C9] mb-1">Min Value</label>
                       <input
                         type="number"
                         value={formMin}
                         onChange={(e) => setFormMin(parseInt(e.target.value, 10))}
-                        className="w-full bg-white border border-stone-900 rounded-xl px-3 py-1.5"
+                        className="cream-input text-xs py-2"
                       />
                     </div>
                     <div>
-                      <label className="block text-stone-800 font-bold mb-1">Max Value</label>
+                      <label className="block text-[#B9A8C9] mb-1">Max Value</label>
                       <input
                         type="number"
                         value={formMax}
                         onChange={(e) => setFormMax(parseInt(e.target.value, 10))}
-                        className="w-full bg-white border border-stone-900 rounded-xl px-3 py-1.5"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-stone-800 font-bold mb-1">Min Label</label>
-                      <input
-                        type="text"
-                        value={formMinLabel}
-                        onChange={(e) => setFormMinLabel(e.target.value)}
-                        className="w-full bg-white border border-stone-900 rounded-xl px-3 py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-stone-800 font-bold mb-1">Max Label</label>
-                      <input
-                        type="text"
-                        value={formMaxLabel}
-                        onChange={(e) => setFormMaxLabel(e.target.value)}
-                        className="w-full bg-white border border-stone-900 rounded-xl px-3 py-1.5"
+                        className="cream-input text-xs py-2"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-stone-800 font-bold mb-1">
+                    <label className="block text-[#B9A8C9] mb-1">
                       Target Correct Rating (Numeric) *
                     </label>
                     <input
@@ -867,9 +834,9 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
                       max={formMax}
                       value={Number(formCorrectAnswer)}
                       onChange={(e) => setFormCorrectAnswer(parseInt(e.target.value, 10))}
-                      className="w-full bg-white border border-stone-900 rounded-xl px-3 py-1.5 font-bold"
+                      className="cream-input text-xs py-2"
                     />
-                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                    <span className="text-[11px] text-[#8C789B] mt-1 block">
                       Participants within ±1 point will be counted as correct.
                     </span>
                   </div>
@@ -878,33 +845,33 @@ export const AdminQuestionManager: React.FC<AdminQuestionManagerProps> = ({
 
               {/* Fun Lore Explanation */}
               <div>
-                <label className="block text-stone-800 font-bold uppercase mb-1">
-                  Fun Lore / Explanation (Shown in Leaderboard & Results)
+                <label className="block text-[#B9A8C9] mb-1 font-medium">
+                  Fun Lore / Explanation (Shown in Results & Leaderboard)
                 </label>
                 <input
                   type="text"
                   value={formExplanation}
                   onChange={(e) => setFormExplanation(e.target.value)}
                   placeholder="e.g. Because nothing beats fresh sushi at 2 AM!"
-                  className="w-full bg-[#FAF7F0] border border-stone-900 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:bg-white"
+                  className="cream-input text-xs py-2.5"
                 />
               </div>
 
               {/* Submit / Cancel */}
-              <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+              <div className="pt-4 border-t border-white/[0.06] flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     setIsCreating(false);
                     setEditingQuestion(null);
                   }}
-                  className="px-4 py-2 rounded-xl border border-stone-900 bg-white font-bold cursor-pointer"
+                  className="btn-secondary text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white font-bold shadow-brutal-sm cursor-pointer"
+                  className="btn-primary text-xs"
                 >
                   {editingQuestion ? 'Update Question' : 'Save Question'}
                 </button>

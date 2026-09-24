@@ -1,34 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ResponseRecord, formatDate } from '../lib/utils';
+import { ResponseRecord, getParticipantAvatar } from '../lib/utils';
 import { getAllResponses } from '../lib/supabase';
 import {
   calculateLeaderboards,
   ParticipantScore,
-  QuestionResult,
   getStoredAnswerKey,
   saveCustomAnswerKey,
   resetAnswerKey,
   QuestionKey,
 } from '../lib/scoring';
-import { getActiveQuestions, Question } from '../lib/questions';
+import { getActiveQuestions } from '../lib/questions';
+import { useDesignSystem } from '../context/DesignSystemContext';
+import { triggerCelebration, sounds } from '../lib/audio';
+import { ParticipantDetailModal } from '../components/ParticipantDetailModal';
 import {
   Trophy,
   Flame,
-  AlertTriangle,
   Search,
   RefreshCw,
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
+  ChevronRight,
   Sparkles,
-  Sliders,
   Settings2,
   X,
   Share2,
   Check,
+  Bookmark,
+  Crown,
 } from 'lucide-react';
 
 interface LeaderboardProps {
@@ -44,15 +42,21 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   isAdmin,
   currentParticipantName,
 }) => {
-  const [activeTab, setActiveTab] = useState<'all-correct' | 'wrong' | 'all'>('all-correct');
+  const { theme } = useDesignSystem();
+  const [activeTab, setActiveTab] = useState<'all' | 'all-correct' | 'wrong'>('all');
   const [responses, setResponses] = useState<ResponseRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedParticipantId, setExpandedParticipantId] = useState<string | null>(null);
   const [showAnswerKeyModal, setShowAnswerKeyModal] = useState(false);
   const [answerKey, setAnswerKey] = useState<Record<string, QuestionKey>>(getStoredAnswerKey());
   const [copiedShare, setCopiedShare] = useState(false);
+  
+  // Selected participant for modal view
+  const [selectedParticipant, setSelectedParticipant] = useState<{
+    item: ParticipantScore;
+    rankIndex: number;
+  } | null>(null);
 
   const fetchResponses = async () => {
     setLoading(true);
@@ -88,18 +92,19 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     return list.filter((p) => p.participant_name.toLowerCase().includes(q));
   };
 
+  const filteredAll = useMemo(() => filterList(allScores), [allScores, searchQuery]);
   const filteredAllCorrect = useMemo(() => filterList(allCorrectScores), [allCorrectScores, searchQuery]);
   const filteredWrong = useMemo(() => filterList(questionsWrongScores), [questionsWrongScores, searchQuery]);
-  const filteredAll = useMemo(() => filterList(allScores), [allScores, searchQuery]);
-  const filteredTopContenders = useMemo(() => filterList(topContenders), [topContenders, searchQuery]);
 
-  const toggleExpand = (id: string) => {
-    setExpandedParticipantId((prev) => (prev === id ? null : id));
+  const handleOpenParticipant = (item: ParticipantScore, index: number) => {
+    sounds.playClick();
+    setSelectedParticipant({ item, rankIndex: index });
   };
 
   const handleShare = () => {
+    sounds.playClick();
     const url = window.location.href;
-    const shareText = `See who really knows Denzel! Check out the leaderboard: ${url}`;
+    const shareText = `See who really knows Denzel! Check out the live HotSeat scoreboard: ${url}`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareText);
       setCopiedShare(true);
@@ -117,677 +122,730 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     if (confirm('Reset official answer key back to default answers for Denzel?')) {
       resetAnswerKey();
       setAnswerKey(getStoredAnswerKey());
+      setShowAnswerKeyModal(false);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-16 space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto pb-12">
       {/* Top Navigation Row */}
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-stone-600 hover:text-stone-900 transition cursor-pointer"
+          className="px-3.5 py-2 rounded-xl border text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition hover:bg-white/5 opacity-80 hover:opacity-100"
+          style={{
+            borderColor: theme.colors.borderSecondary || theme.colors.border,
+            color: theme.colors.textPrimary,
+          }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          <span>Back to Quiz</span>
         </button>
 
         <div className="flex items-center gap-2">
           {isAdmin && (
             <button
               onClick={() => setShowAnswerKeyModal(true)}
-              className="px-3 py-1.5 rounded-xl border-2 border-stone-900 bg-white hover:bg-stone-100 text-xs font-mono font-bold text-stone-900 shadow-brutal-sm flex items-center gap-1.5 cursor-pointer"
-              title="Configure Official Answers"
+              className="px-3 py-2 rounded-xl border text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition hover:bg-white/5 text-amber-400"
+              style={{
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              }}
+              title="Edit Denzel's Master Answer Key"
             >
               <Settings2 className="w-3.5 h-3.5" />
-              <span>Official Answer Key</span>
+              <span className="hidden sm:inline">Answer Key</span>
             </button>
           )}
 
           <button
+            onClick={fetchResponses}
+            disabled={loading}
+            className="p-2 rounded-xl border text-xs font-mono transition cursor-pointer hover:bg-white/5 opacity-80 hover:opacity-100"
+            style={{
+              borderColor: theme.colors.borderSecondary || theme.colors.border,
+              color: theme.colors.textPrimary,
+            }}
+            title="Refresh Leaderboard"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-orange-400' : ''}`} />
+          </button>
+
+          <button
             onClick={handleShare}
-            className="px-3 py-1.5 rounded-xl border-2 border-stone-900 bg-white hover:bg-stone-100 text-xs font-mono font-bold text-stone-900 shadow-brutal-sm flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 rounded-xl border text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition hover:bg-white/5 opacity-80 hover:opacity-100"
+            style={{
+              borderColor: theme.colors.borderSecondary || theme.colors.border,
+              color: theme.colors.textPrimary,
+            }}
             title="Share leaderboard"
           >
             {copiedShare ? (
               <>
-                <Check className="w-3.5 h-3.5 text-[#3D8F70]" />
-                <span>Copied!</span>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400 font-bold">Link Copied!</span>
               </>
             ) : (
               <>
-                <Share2 className="w-3.5 h-3.5" />
+                <Share2 className="w-3.5 h-3.5 text-orange-400" />
                 <span>Share</span>
               </>
             )}
           </button>
-
-          <button
-            onClick={fetchResponses}
-            disabled={loading}
-            className="p-1.5 rounded-xl border-2 border-stone-900 bg-white hover:bg-stone-100 text-stone-900 shadow-brutal-sm transition disabled:opacity-40 cursor-pointer"
-            title="Refresh Leaderboard"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
-      {/* Header Banner */}
-      <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-6 sm:p-8 shadow-brutal space-y-4 text-center sm:text-left">
+      {/* Hero Header Card */}
+      <div
+        className="border p-5 sm:p-7 space-y-4 text-center sm:text-left relative overflow-hidden rounded-3xl shadow-xl transition-all"
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+          color: theme.colors.textPrimary,
+        }}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="font-mono text-xs font-bold tracking-[0.25em] text-stone-500 uppercase">
-              HALL OF FAME & SHAME · DENZEL
+            <div className="flex items-center justify-center sm:justify-start gap-1.5 font-mono text-[11px] font-bold tracking-[0.25em] text-orange-400 uppercase">
+              <Bookmark className="w-3.5 h-3.5 fill-orange-400/20" />
+              <span>OFFICIAL LEADERBOARD · DENZEL</span>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight mt-1">
+            <h1
+              className="text-2xl sm:text-3xl font-black tracking-tight mt-1"
+              style={{
+                fontFamily: theme.typography.displayFont,
+                color: theme.colors.textPrimary,
+              }}
+            >
               Who Really Knows Me?
             </h1>
-            <p className="text-xs sm:text-sm text-stone-600 mt-1">
-              Live rankings scored against Denzel's official 12-question answer key.
+            <p
+              className="text-xs sm:text-sm mt-0.5 opacity-75 font-serif italic"
+              style={{ color: theme.colors.textSecondary }}
+            >
+              Click any participant to view their score summary and accuracy breakdown.
             </p>
           </div>
 
           <button
             onClick={onTakeQuiz}
-            className="self-center sm:self-auto px-5 py-3 rounded-2xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white font-black text-sm shadow-brutal shadow-brutal-hover flex items-center gap-2 cursor-pointer transition flex-shrink-0"
+            className="self-center sm:self-auto px-5 py-2.5 rounded-xl border font-black text-xs font-mono flex items-center gap-2 cursor-pointer transition flex-shrink-0 shadow-md hover:scale-102 active:scale-98"
+            style={{
+              backgroundColor: theme.colors.accent,
+              borderColor: theme.colors.accent,
+              color: theme.colors.accentText,
+            }}
           >
-            <Sparkles className="w-4 h-4" />
-            <span>{currentParticipantName ? 'Continue My Quiz' : 'Take The Quiz'}</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>{currentParticipantName ? 'Continue Quiz' : 'Take The Quiz'}</span>
           </button>
         </div>
 
-        {/* Quick Stats Bar */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3 border-t-2 border-stone-200 text-center font-mono text-xs">
-          <div className="p-2 sm:p-3 rounded-xl bg-[#FAF7F0] border border-stone-900">
-            <span className="text-stone-500 block text-[10px] uppercase font-bold">Total Players</span>
-            <span className="font-black text-base sm:text-lg text-stone-900">{responses.length}</span>
+        {/* Quick Stats Summary */}
+        <div
+          className="grid grid-cols-3 gap-2 pt-3 border-t text-center font-mono text-xs"
+          style={{ borderColor: theme.colors.borderSecondary }}
+        >
+          <div
+            className="p-2 sm:p-2.5 rounded-xl border transition"
+            style={{
+              backgroundColor: theme.colors.surfaceSubtle,
+              borderColor: theme.colors.borderSecondary,
+            }}
+          >
+            <span className="block text-[10px] uppercase font-bold tracking-wider opacity-60">
+              Total Players
+            </span>
+            <span className="font-black text-base sm:text-lg" style={{ color: theme.colors.textPrimary }}>
+              {responses.length}
+            </span>
           </div>
-          <div className="p-2 sm:p-3 rounded-xl bg-[#E8F5E9] border border-stone-900">
-            <span className="text-[#1B5E20] block text-[10px] uppercase font-bold">100% Club</span>
-            <span className="font-black text-base sm:text-lg text-[#1B5E20]">{allCorrectScores.length}</span>
+
+          <div
+            className="p-2 sm:p-2.5 rounded-xl border transition"
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderColor: 'rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            <span className="text-emerald-400 block text-[10px] uppercase font-bold tracking-wider">
+              100% Club
+            </span>
+            <span className="font-black text-base sm:text-lg text-emerald-300">
+              {allCorrectScores.length}
+            </span>
           </div>
-          <div className="p-2 sm:p-3 rounded-xl bg-[#FEE2E2] border border-stone-900">
-            <span className="text-[#991B1B] block text-[10px] uppercase font-bold">Got Wrong</span>
-            <span className="font-black text-base sm:text-lg text-[#991B1B]">{questionsWrongScores.length}</span>
+
+          <div
+            className="p-2 sm:p-2.5 rounded-xl border transition"
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <span className="text-rose-400 block text-[10px] uppercase font-bold tracking-wider">
+              Got Wrong
+            </span>
+            <span className="font-black text-base sm:text-lg text-rose-300">
+              {questionsWrongScores.length}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Primary Ranking Mode Tabs */}
-      <div className="grid grid-cols-3 gap-2 p-1.5 bg-[#FAF7F0] border-2 border-stone-900 rounded-2xl shadow-brutal-sm">
+      {/* Top 3 Podium Showcase (Clickable to view modal) */}
+      {allScores.length > 0 && (
+        <div
+          className="border p-4 sm:p-5 space-y-3 relative overflow-hidden rounded-3xl transition-all"
+          style={{
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Crown className="w-4 h-4 text-amber-400 animate-float" />
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-amber-300">
+                Top Contenders
+              </span>
+            </div>
+            <span className="text-[11px] font-mono opacity-60">Tap to inspect</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 items-end pt-2 pb-1">
+            {/* 2nd Place (Silver) */}
+            <div className="flex flex-col items-center text-center order-1">
+              {allScores[1] ? (
+                <div
+                  onClick={() => handleOpenParticipant(allScores[1], 1)}
+                  className="w-full flex flex-col items-center space-y-1.5 cursor-pointer group transition hover:scale-103"
+                  title="Click to view details"
+                >
+                  <div className="text-2xl sm:text-3xl select-none transition group-hover:scale-110">
+                    {getParticipantAvatar(allScores[1].participant_name)}
+                  </div>
+                  <div className="font-black text-xs truncate w-full px-1" style={{ color: theme.colors.textPrimary }}>
+                    {allScores[1].participant_name}
+                  </div>
+                  <div className="font-mono text-[10px] sm:text-[11px] font-bold text-slate-300">
+                    {allScores[1].scorePercent}%
+                  </div>
+                  <div
+                    className="w-full h-16 sm:h-20 rounded-t-xl border border-b-0 flex flex-col items-center justify-center font-black transition-all bg-slate-400/10 border-slate-400/30 group-hover:border-slate-300/60"
+                  >
+                    <span className="text-lg sm:text-xl">🥈</span>
+                    <span className="font-mono text-[9px] sm:text-[10px] text-slate-300 font-bold uppercase">2nd</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-16 sm:h-20 rounded-t-xl border border-dashed flex items-center justify-center opacity-25 text-xs font-mono">
+                  —
+                </div>
+              )}
+            </div>
+
+            {/* 1st Place (Gold Champion) */}
+            <div className="flex flex-col items-center text-center order-2">
+              {allScores[0] ? (
+                <div
+                  onClick={() => handleOpenParticipant(allScores[0], 0)}
+                  className="w-full flex flex-col items-center space-y-1.5 cursor-pointer group transition hover:scale-103"
+                  title="Click to view details"
+                >
+                  <div className="relative">
+                    <div className="text-3xl sm:text-4xl select-none animate-float transition group-hover:scale-110">
+                      {getParticipantAvatar(allScores[0].participant_name)}
+                    </div>
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-sm">👑</div>
+                  </div>
+                  <div className="font-black text-xs sm:text-sm truncate w-full px-1 text-amber-300">
+                    {allScores[0].participant_name}
+                  </div>
+                  <div className="font-mono text-xs font-bold text-amber-400">
+                    {allScores[0].scorePercent}%
+                  </div>
+                  <div
+                    className="w-full h-22 sm:h-26 rounded-t-xl border border-b-0 flex flex-col items-center justify-center font-black transition-all bg-amber-500/15 border-amber-500/40 shadow-sm group-hover:border-amber-400"
+                  >
+                    <span className="text-xl sm:text-2xl">🏆</span>
+                    <span className="font-mono text-[10px] text-amber-300 font-bold uppercase tracking-wider">#1 Champ</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-22 sm:h-26 rounded-t-xl border border-dashed flex items-center justify-center opacity-25 text-xs font-mono">
+                  —
+                </div>
+              )}
+            </div>
+
+            {/* 3rd Place (Bronze) */}
+            <div className="flex flex-col items-center text-center order-3">
+              {allScores[2] ? (
+                <div
+                  onClick={() => handleOpenParticipant(allScores[2], 2)}
+                  className="w-full flex flex-col items-center space-y-1.5 cursor-pointer group transition hover:scale-103"
+                  title="Click to view details"
+                >
+                  <div className="text-2xl sm:text-3xl select-none transition group-hover:scale-110">
+                    {getParticipantAvatar(allScores[2].participant_name)}
+                  </div>
+                  <div className="font-black text-xs truncate w-full px-1" style={{ color: theme.colors.textPrimary }}>
+                    {allScores[2].participant_name}
+                  </div>
+                  <div className="font-mono text-[10px] sm:text-[11px] font-bold text-amber-400/80">
+                    {allScores[2].scorePercent}%
+                  </div>
+                  <div
+                    className="w-full h-14 sm:h-16 rounded-t-xl border border-b-0 flex flex-col items-center justify-center font-black transition-all bg-amber-800/15 border-amber-700/30 group-hover:border-amber-600/60"
+                  >
+                    <span className="text-base sm:text-lg">🥉</span>
+                    <span className="font-mono text-[9px] text-amber-200 font-bold uppercase">3rd</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-14 sm:h-16 rounded-t-xl border border-dashed flex items-center justify-center opacity-25 text-xs font-mono">
+                  —
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Tabs */}
+      <div
+        className="grid grid-cols-3 gap-1.5 p-1 border rounded-2xl shadow-inner font-mono text-xs"
+        style={{
+          backgroundColor: theme.colors.surfaceSubtle,
+          borderColor: theme.colors.borderSecondary,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={`py-2 px-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            activeTab === 'all'
+              ? 'bg-orange-500 text-white shadow-md'
+              : 'opacity-70 hover:opacity-100 hover:text-white'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>All ({allScores.length})</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('all-correct')}
-          className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-2 px-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'all-correct'
-              ? 'bg-[#3D8F70] text-white shadow-sm'
-              : 'text-stone-700 hover:text-stone-950'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'opacity-70 hover:opacity-100 hover:text-white'
           }`}
         >
-          <Trophy className="w-4 h-4 flex-shrink-0" />
-          <span>All Correct ({allCorrectScores.length})</span>
+          <Crown className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>100% Club ({allCorrectScores.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('wrong')}
-          className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-2 px-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
             activeTab === 'wrong'
-              ? 'bg-[#E05338] text-white shadow-sm'
-              : 'text-stone-700 hover:text-stone-950'
+              ? 'bg-rose-600 text-white shadow-md'
+              : 'opacity-70 hover:opacity-100 hover:text-white'
           }`}
         >
-          <Flame className="w-4 h-4 flex-shrink-0" />
+          <Flame className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Got Wrong ({questionsWrongScores.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-            activeTab === 'all'
-              ? 'bg-[#1C1917] text-white shadow-sm'
-              : 'text-stone-700 hover:text-stone-950'
-          }`}
-        >
-          <span>All Ranks ({allScores.length})</span>
         </button>
       </div>
 
       {/* Search Bar */}
       <div className="relative">
-        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
+        <Search
+          className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 opacity-50"
+          style={{ color: theme.colors.textSecondary }}
+        />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by participant name..."
-          className="w-full bg-[#FFFDF9] border-2 border-stone-900 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:bg-white shadow-brutal-sm font-mono"
+          placeholder="Filter by name..."
+          className="w-full border rounded-2xl pl-10 pr-4 py-2.5 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/40 transition placeholder:opacity-40"
+          style={{
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+            color: theme.colors.textPrimary,
+          }}
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 font-bold text-xs"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-60 hover:opacity-100 font-bold"
+            style={{ color: theme.colors.textSecondary }}
           >
             ✕
           </button>
         )}
       </div>
 
-      {/* TAB 1: ALL QUESTIONS CORRECT (100% CLUB) */}
-      {activeTab === 'all-correct' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="font-black text-lg text-stone-900 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-[#3D8F70]" />
-              The 100% Club — All 12 Questions Correct
-            </h2>
-            <span className="font-mono text-xs text-stone-500 font-bold">
-              {filteredAllCorrect.length} player{filteredAllCorrect.length === 1 ? '' : 's'}
-            </span>
-          </div>
-
-          {filteredAllCorrect.length === 0 ? (
-            <div className="bg-[#FFFDF9] border-2 border-stone-900 rounded-[28px] p-8 text-center space-y-4 shadow-brutal">
-              <div className="w-14 h-14 rounded-2xl border-2 border-stone-900 bg-[#F9C84E] flex items-center justify-center mx-auto shadow-brutal-sm">
-                <Trophy className="w-7 h-7 text-stone-900" />
-              </div>
-              <h3 className="text-xl font-black text-stone-900">
-                {searchQuery ? 'No match found' : 'The 100% Club Throne is Currently Empty!'}
-              </h3>
-              <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto">
-                {searchQuery
-                  ? `No participant named "${searchQuery}" has achieved 12/12 yet.`
-                  : 'Nobody has achieved the elusive 12/12 perfection yet. Can you be the very first person to crack the code?'}
-              </p>
-              <button
-                onClick={onTakeQuiz}
-                className="px-6 py-3 rounded-2xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white font-black text-sm shadow-brutal cursor-pointer inline-flex items-center gap-2"
+      {/* Simple, Clean Participant List (Click to open details modal) */}
+      <div className="space-y-2">
+        {activeTab === 'all' && (
+          <>
+            {filteredAll.length === 0 ? (
+              <div
+                className="border rounded-2xl p-8 text-center text-xs font-mono opacity-70"
+                style={{
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                }}
               >
-                <span>Take the Quiz & Shoot for 12/12</span>
-              </button>
+                No participant records found.
+              </div>
+            ) : (
+              filteredAll.map((item, idx) => {
+                const isCurrent =
+                  currentParticipantName &&
+                  item.participant_name.toLowerCase() === currentParticipantName.toLowerCase();
 
-              {/* Honorable Mentions / Almost Made It */}
-              {filteredTopContenders.length > 0 && !searchQuery && (
-                <div className="pt-6 border-t-2 border-stone-200 text-left space-y-3">
-                  <div className="font-mono text-xs font-bold uppercase tracking-wider text-stone-500">
-                    Honorable Mentions — Closest Contenders (80%+ Correct):
-                  </div>
-                  <div className="space-y-2.5">
-                    {filteredTopContenders.slice(0, 5).map((contender, idx) => (
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleOpenParticipant(item, idx)}
+                    className={`group p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 hover:border-orange-500/50 hover:bg-white/5 active:scale-99 ${
+                      isCurrent ? 'ring-2 ring-orange-500/60' : ''
+                    }`}
+                    style={{
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.border,
+                    }}
+                  >
+                    {/* Left: Rank & Avatar & Name */}
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
-                        key={contender.id}
-                        className="p-3.5 bg-[#FAF7F0] border-2 border-stone-900 rounded-2xl flex items-center justify-between shadow-brutal-sm"
+                        className={`w-8 h-8 rounded-xl border flex items-center justify-center font-black text-xs font-mono flex-shrink-0 ${
+                          idx === 0
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : idx === 1
+                            ? 'bg-slate-400/20 text-slate-300 border-slate-400/40'
+                            : idx === 2
+                            ? 'bg-amber-800/30 text-amber-200 border-amber-700/40'
+                            : 'bg-white/5 text-slate-400 border-white/10'
+                        }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-black text-sm text-stone-500">
-                            #{idx + 1}
-                          </span>
-                          <div>
-                            <div className="font-bold text-sm text-stone-900">
-                              {contender.participant_name}
-                            </div>
-                            <div className="font-mono text-[11px] text-stone-500">
-                              {contender.correctCount} of {contender.totalQuestions} correct · {contender.wrongCount} mistake{contender.wrongCount === 1 ? '' : 's'}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-xl border border-stone-900 bg-white">
-                          {contender.scorePercent}%
-                        </span>
+                        {idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                       </div>
-                    ))}
+
+                      <div className="text-xl sm:text-2xl select-none flex-shrink-0 transition-transform group-hover:scale-110">
+                        {getParticipantAvatar(item.participant_name)}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-bold text-sm sm:text-base truncate"
+                            style={{ color: theme.colors.textPrimary }}
+                          >
+                            {item.participant_name}
+                          </span>
+                          {isCurrent && (
+                            <span className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="font-mono text-[11px] opacity-70 truncate"
+                          style={{ color: theme.colors.textSecondary }}
+                        >
+                          {item.roastTitle}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Score Pill & Chevron */}
+                    <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                      <span
+                        className={`px-2.5 py-1 rounded-xl border text-xs font-bold whitespace-nowrap ${
+                          item.scorePercent === 100
+                            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                            : item.scorePercent >= 60
+                            ? 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                            : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                        }`}
+                      >
+                        {item.correctCount}/{item.totalQuestions} ({item.scorePercent}%)
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {/* TAB 2: ALL CORRECT (100% CLUB) */}
+        {activeTab === 'all-correct' && (
+          <>
+            {filteredAllCorrect.length === 0 ? (
+              <div
+                className="border rounded-2xl p-8 text-center space-y-3 font-mono text-xs"
+                style={{
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                }}
+              >
+                <div className="w-12 h-12 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-center mx-auto">
+                  <Trophy className="w-6 h-6 text-amber-400 animate-float" />
+                </div>
+                <h3 className="text-base font-black" style={{ color: theme.colors.textPrimary }}>
+                  Throne is Currently Empty!
+                </h3>
+                <p className="opacity-70 max-w-sm mx-auto" style={{ color: theme.colors.textSecondary }}>
+                  No player has achieved 12/12 perfection yet. Can you be the first?
+                </p>
+                <button
+                  onClick={onTakeQuiz}
+                  className="px-4 py-2 rounded-xl bg-orange-500 text-white font-black text-xs cursor-pointer shadow-md inline-flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Shoot for 12/12</span>
+                </button>
+              </div>
+            ) : (
+              filteredAllCorrect.map((item, idx) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleOpenParticipant(item, idx)}
+                  className="group p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 hover:border-emerald-500/50 hover:bg-white/5 active:scale-99"
+                  style={{
+                    backgroundColor: theme.colors.surface,
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-black text-xs font-mono flex-shrink-0">
+                      👑
+                    </div>
+                    <div className="text-xl sm:text-2xl select-none flex-shrink-0">
+                      {getParticipantAvatar(item.participant_name)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm sm:text-base truncate" style={{ color: theme.colors.textPrimary }}>
+                        {item.participant_name}
+                      </div>
+                      <div className="font-mono text-[11px] text-emerald-400 truncate">
+                        12/12 Perfect Score
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                    <span className="px-2.5 py-1 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 text-xs font-bold">
+                      100%
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredAllCorrect.map((item, index) => {
-                const isCurrent = currentParticipantName && item.participant_name.toLowerCase() === currentParticipantName.toLowerCase();
-                const isExpanded = expandedParticipantId === item.id;
+              ))
+            )}
+          </>
+        )}
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-2xl p-4 sm:p-5 shadow-brutal transition ${
-                      isCurrent ? 'ring-4 ring-[#3D8F70]/40 bg-[#F0FDF4]' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Rank Badge */}
-                        <div
-                          className={`w-10 h-10 rounded-xl border-2 border-stone-900 flex items-center justify-center font-black text-base shadow-brutal-sm flex-shrink-0 ${
-                            index === 0
-                              ? 'bg-[#F9C84E] text-stone-900'
-                              : index === 1
-                              ? 'bg-stone-200 text-stone-900'
-                              : index === 2
-                              ? 'bg-amber-700 text-white'
-                              : 'bg-white text-stone-800'
-                          }`}
-                        >
-                          {index === 0 ? '👑' : `#${index + 1}`}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-black text-base sm:text-lg text-stone-900 truncate">
-                              {item.participant_name}
-                            </span>
-                            {isCurrent && (
-                              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3D8F70] text-white">
-                                You
-                              </span>
-                            )}
-                            <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-900 bg-[#E8F5E9] text-[#1B5E20]">
-                              12/12 PERFECT
-                            </span>
-                          </div>
-                          <div className="font-mono text-xs text-stone-500 mt-0.5">
-                            {item.roastTitle} · {formatDate(item.created_at)}
-                          </div>
-                        </div>
+        {/* TAB 3: GOT WRONG (HALL OF SHAME) */}
+        {activeTab === 'wrong' && (
+          <>
+            {filteredWrong.length === 0 ? (
+              <div
+                className="border rounded-2xl p-8 text-center space-y-2 font-mono text-xs opacity-70"
+                style={{
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                }}
+              >
+                No mistakes recorded yet!
+              </div>
+            ) : (
+              filteredWrong.map((item, idx) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleOpenParticipant(item, idx)}
+                  className="group p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 hover:border-rose-500/50 hover:bg-white/5 active:scale-99"
+                  style={{
+                    backgroundColor: theme.colors.surface,
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl border border-rose-500/40 bg-rose-950/40 text-rose-300 flex items-center justify-center font-black text-xs font-mono flex-shrink-0">
+                      #{idx + 1}
+                    </div>
+                    <div className="text-xl sm:text-2xl select-none flex-shrink-0">
+                      {getParticipantAvatar(item.participant_name)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm sm:text-base truncate" style={{ color: theme.colors.textPrimary }}>
+                        {item.participant_name}
                       </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="text-right">
-                          <span className="font-black text-base sm:text-xl text-[#3D8F70]">
-                            100%
-                          </span>
-                          <span className="block font-mono text-[10px] text-stone-500">
-                            0 errors
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => toggleExpand(item.id)}
-                          className="p-1.5 rounded-xl border border-stone-900 hover:bg-stone-100 text-stone-700 cursor-pointer"
-                          title="View answers"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
+                      <div className="font-mono text-[11px] text-rose-400 truncate">
+                        {item.wrongCount} mistake{item.wrongCount === 1 ? '' : 's'} · {item.roastTitle}
                       </div>
                     </div>
-
-                    {/* Detailed Answer Breakdown Drawer */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-4 border-t-2 border-stone-200 space-y-2">
-                        <div className="font-mono text-xs font-bold text-stone-700 uppercase">
-                          All Correct Answers Verified:
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                          {item.results.map((r, qIdx) => (
-                            <div
-                              key={r.questionId}
-                              className="p-2.5 rounded-xl bg-[#FAF7F0] border border-stone-300 flex items-start gap-2"
-                            >
-                              <CheckCircle2 className="w-4 h-4 text-[#3D8F70] flex-shrink-0 mt-0.5" />
-                              <div className="min-w-0">
-                                <span className="font-bold text-stone-900 block truncate">
-                                  Q{qIdx + 1}: {r.label}
-                                </span>
-                                <span className="text-[#1B5E20] font-bold truncate block">
-                                  Answer: {String(r.userAnswer || '—')}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* TAB 2: GOT QUESTIONS WRONG (THE HALL OF SHAME) */}
-      {activeTab === 'wrong' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h2 className="font-black text-lg text-stone-900 flex items-center gap-2">
-                <Flame className="w-5 h-5 text-[#E05338]" />
-                The Hall of Shame — Most Questions Wrong
-              </h2>
-              <p className="font-mono text-xs text-stone-500">
-                Ranked from most mistakes to fewest mistakes. Click any card to inspect their funny guesses!
-              </p>
-            </div>
-            <span className="font-mono text-xs text-stone-500 font-bold">
-              {filteredWrong.length} player{filteredWrong.length === 1 ? '' : 's'}
-            </span>
-          </div>
-
-          {filteredWrong.length === 0 ? (
-            <div className="bg-[#FFFDF9] border-2 border-stone-900 rounded-[28px] p-8 text-center space-y-3 shadow-brutal">
-              <div className="w-12 h-12 rounded-2xl border-2 border-stone-900 bg-[#E8F5E9] flex items-center justify-center mx-auto shadow-brutal-sm">
-                <CheckCircle2 className="w-6 h-6 text-[#1B5E20]" />
-              </div>
-              <h3 className="text-lg font-black text-stone-900">
-                No Mistakes Recorded Yet!
-              </h3>
-              <p className="text-xs font-mono text-stone-600 max-w-sm mx-auto">
-                Either everyone who played got 100%, or no submissions have been recorded yet.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredWrong.map((item, index) => {
-                const isCurrent = currentParticipantName && item.participant_name.toLowerCase() === currentParticipantName.toLowerCase();
-                const isExpanded = expandedParticipantId === item.id;
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-2xl p-4 sm:p-5 shadow-brutal transition ${
-                      isCurrent ? 'ring-4 ring-[#E05338]/40 bg-[#FEF2F2]' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Shame Rank Badge */}
-                        <div
-                          className={`w-10 h-10 rounded-xl border-2 border-stone-900 flex items-center justify-center font-black text-sm shadow-brutal-sm flex-shrink-0 ${
-                            index === 0
-                              ? 'bg-[#E05338] text-white'
-                              : index === 1
-                              ? 'bg-[#F9C84E] text-stone-900'
-                              : 'bg-[#FAF7F0] text-stone-800'
-                          }`}
-                        >
-                          #{index + 1}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-black text-base sm:text-lg text-stone-900 truncate">
-                              {item.participant_name}
-                            </span>
-                            {isCurrent && (
-                              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E05338] text-white">
-                                You
-                              </span>
-                            )}
-                            <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-900 bg-rose-100 text-rose-900">
-                              {item.wrongCount} WRONG
-                            </span>
-                          </div>
-                          <div className="font-mono text-xs text-rose-800 font-bold mt-0.5">
-                            {item.roastTitle}
-                          </div>
-                          <div className="font-mono text-[11px] text-stone-500">
-                            {item.roastDescription}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="text-right">
-                          <span className="font-black text-base sm:text-xl text-[#E05338]">
-                            {item.scorePercent}%
-                          </span>
-                          <span className="block font-mono text-[10px] text-stone-500">
-                            {item.correctCount}/{item.totalQuestions} right
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => toggleExpand(item.id)}
-                          className="p-1.5 rounded-xl border border-stone-900 hover:bg-stone-100 text-stone-700 cursor-pointer"
-                          title="Inspect mistakes"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inspect Wrong Answers Drawer */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-4 border-t-2 border-stone-200 space-y-2.5">
-                        <div className="flex items-center justify-between font-mono text-xs font-bold text-stone-700 uppercase">
-                          <span>
-                            Mistakes Breakdown ({item.wrongResults.length} questions):
-                          </span>
-                          <span className="text-[11px] text-stone-500 lowercase font-normal">
-                            Their guess vs Denzel's actual answer
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
-                          {item.wrongResults.map((r) => (
-                            <div
-                              key={r.questionId}
-                              className="p-3 rounded-xl bg-white border border-stone-300 font-mono text-xs space-y-1"
-                            >
-                              <div className="font-bold text-stone-900">
-                                {r.label}
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-[11px]">
-                                <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 flex items-center gap-1.5">
-                                  <XCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
-                                  <span className="truncate">
-                                    Their Guess: <strong>{String(r.userAnswer || 'Skipped')}</strong>
-                                  </span>
-                                </div>
-                                <div className="p-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center gap-1.5">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                  <span className="truncate">
-                                    Actual: <strong>{String(r.correctAnswer)}</strong>
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2 flex-shrink-0 font-mono">
+                    <span className="px-2.5 py-1 rounded-xl border border-rose-500/40 bg-rose-950/40 text-rose-300 text-xs font-bold">
+                      {item.scorePercent}%
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                </div>
+              ))
+            )}
+          </>
+        )}
+      </div>
 
-      {/* TAB 3: OVERALL / ALL RANKS */}
-      {activeTab === 'all' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="font-black text-lg text-stone-900">
-              Complete Leaderboard — All Submissions Ranked
-            </h2>
-            <span className="font-mono text-xs text-stone-500 font-bold">
-              {filteredAll.length} participant{filteredAll.length === 1 ? '' : 's'}
-            </span>
-          </div>
-
-          {filteredAll.length === 0 ? (
-            <div className="bg-[#FFFDF9] border-2 border-stone-900 rounded-[28px] p-8 text-center text-xs font-mono text-stone-600 shadow-brutal">
-              No participant records found.
-            </div>
-          ) : (
-            <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[24px] shadow-brutal overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left font-mono text-xs">
-                  <thead className="bg-[#FAF7F0] border-b-2 border-stone-900 font-bold text-stone-800 uppercase">
-                    <tr>
-                      <th className="py-3 px-4">Rank</th>
-                      <th className="py-3 px-4">Participant</th>
-                      <th className="py-3 px-4 text-center">Score</th>
-                      <th className="py-3 px-4 text-center">Correct</th>
-                      <th className="py-3 px-4 text-center">Wrong</th>
-                      <th className="py-3 px-4">Status / Roast</th>
-                      <th className="py-3 px-4 text-right">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-200">
-                    {filteredAll.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-[#FAF7F0] transition">
-                        <td className="py-3 px-4 font-black">
-                          {idx === 0 ? '👑 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : `#${idx + 1}`}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-stone-900">
-                          {item.participant_name}
-                        </td>
-                        <td className="py-3 px-4 text-center font-bold">
-                          <span
-                            className={`px-2 py-0.5 rounded-full border border-stone-900 ${
-                              item.scorePercent === 100
-                                ? 'bg-[#3D8F70] text-white'
-                                : item.scorePercent >= 60
-                                ? 'bg-[#F9C84E] text-stone-900'
-                                : 'bg-rose-100 text-rose-900'
-                            }`}
-                          >
-                            {item.scorePercent}%
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center text-[#1B5E20] font-bold">
-                          {item.correctCount}
-                        </td>
-                        <td className="py-3 px-4 text-center text-rose-700 font-bold">
-                          {item.wrongCount}
-                        </td>
-                        <td className="py-3 px-4 truncate max-w-xs text-stone-600">
-                          {item.roastTitle}
-                        </td>
-                        <td className="py-3 px-4 text-right text-stone-500 whitespace-nowrap">
-                          {formatDate(item.created_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Participant Detail Modal */}
+      {selectedParticipant && (
+        <ParticipantDetailModal
+          participant={selectedParticipant.item}
+          rankIndex={selectedParticipant.rankIndex}
+          isAdmin={isAdmin}
+          onClose={() => setSelectedParticipant(null)}
+          onTakeQuiz={onTakeQuiz}
+        />
       )}
 
       {/* Answer Key Modal for Admin/Denzel */}
       {showAnswerKeyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-4">
-          <div className="bg-[#FFFDF9] border-[3px] border-stone-900 rounded-[28px] max-w-2xl w-full p-6 sm:p-8 shadow-brutal max-h-[90vh] overflow-y-auto space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-stone-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in select-none">
+          <div
+            className="border rounded-3xl max-w-xl w-full p-6 sm:p-7 max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl"
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderColor: 'rgba(249, 115, 22, 0.4)',
+              color: theme.colors.textPrimary,
+            }}
+          >
+            <div
+              className="flex items-center justify-between pb-3 border-b"
+              style={{ borderColor: theme.colors.borderSecondary }}
+            >
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-[#F9C84E] border-2 border-stone-900 flex items-center justify-center font-black">
-                  <Settings2 className="w-5 h-5 text-stone-900" />
+                <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center font-black">
+                  <Settings2 className="w-5 h-5 text-orange-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-stone-900">
-                    Denzel's Official Answer Key
+                  <h3 className="text-base sm:text-lg font-black" style={{ color: theme.colors.textPrimary }}>
+                    Denzel's Official Master Key
                   </h3>
-                  <p className="font-mono text-xs text-stone-500">
-                    Leaderboard rankings automatically calculate against these answers
+                  <p className="font-mono text-xs opacity-75" style={{ color: theme.colors.textSecondary }}>
+                    Leaderboards calculate automatically against these answers
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAnswerKeyModal(false)}
-                className="p-1.5 rounded-xl border border-stone-900 hover:bg-stone-100 text-stone-800"
+                className="p-1.5 rounded-xl border hover:bg-white/10 cursor-pointer"
+                style={{
+                  borderColor: theme.colors.borderSecondary,
+                  color: theme.colors.textSecondary,
+                }}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 font-mono text-xs">
+            <div className="space-y-3 font-mono text-xs">
               {activeQuestions.map((q, idx) => {
                 const key = answerKey[q.id];
                 return (
                   <div
                     key={q.id}
-                    className="p-3.5 rounded-xl border-2 border-stone-900 bg-[#FAF7F0] space-y-2"
+                    className="p-3 rounded-2xl border space-y-1.5"
+                    style={{
+                      backgroundColor: theme.colors.surfaceSubtle,
+                      borderColor: theme.colors.borderSecondary,
+                    }}
                   >
-                    <div className="font-bold text-stone-900 text-sm">
+                    <div className="font-bold text-xs" style={{ color: theme.colors.textPrimary }}>
                       Q{idx + 1}: {q.label}
                     </div>
 
                     {q.type === 'select' && q.options && (
-                      <div className="space-y-1">
-                        <label className="text-stone-600 block text-[11px] font-bold">
-                          Select Correct Option:
-                        </label>
-                        <select
-                          value={String(key?.correctAnswer || '')}
-                          onChange={(e) => {
-                            setAnswerKey((prev) => ({
-                              ...prev,
-                              [q.id]: {
-                                ...prev[q.id],
-                                correctAnswer: e.target.value,
-                              },
-                            }));
-                          }}
-                          className="w-full bg-white border border-stone-900 rounded-lg p-2 font-mono text-xs"
-                        >
-                          {q.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <select
+                        value={String(key?.correctAnswer || '')}
+                        onChange={(e) => {
+                          setAnswerKey((prev) => ({
+                            ...prev,
+                            [q.id]: {
+                              ...prev[q.id],
+                              correctAnswer: e.target.value,
+                            },
+                          }));
+                        }}
+                        className="w-full border rounded-xl p-2 font-mono text-xs focus:outline-none bg-slate-900 border-white/10"
+                      >
+                        {q.options.map((opt) => (
+                          <option key={opt} value={opt} className="bg-slate-900 text-white">
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
                     )}
 
                     {q.type === 'text' && (
-                      <div className="space-y-1">
-                        <label className="text-stone-600 block text-[11px] font-bold">
-                          Accepted Answer (Case-insensitive):
-                        </label>
-                        <input
-                          type="text"
-                          value={String(key?.correctAnswer || '')}
-                          onChange={(e) => {
-                            setAnswerKey((prev) => ({
-                              ...prev,
-                              [q.id]: {
-                                ...prev[q.id],
-                                correctAnswer: e.target.value,
-                              },
-                            }));
-                          }}
-                          className="w-full bg-white border border-stone-900 rounded-lg p-2 font-mono text-xs"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={String(key?.correctAnswer || '')}
+                        onChange={(e) => {
+                          setAnswerKey((prev) => ({
+                            ...prev,
+                            [q.id]: {
+                              ...prev[q.id],
+                              correctAnswer: e.target.value,
+                            },
+                          }));
+                        }}
+                        className="w-full border rounded-xl p-2 font-mono text-xs focus:outline-none bg-slate-900 border-white/10"
+                        placeholder="Accepted answer..."
+                      />
                     )}
 
                     {q.type === 'scale' && (
-                      <div className="space-y-1">
-                        <label className="text-stone-600 block text-[11px] font-bold">
-                          Target Score ({q.min} to {q.max}):
-                        </label>
-                        <input
-                          type="number"
-                          min={q.min || 1}
-                          max={q.max || 10}
-                          value={Number(key?.correctAnswer || 10)}
-                          onChange={(e) => {
-                            setAnswerKey((prev) => ({
-                              ...prev,
-                              [q.id]: {
-                                ...prev[q.id],
-                                correctAnswer: Number(e.target.value),
-                              },
-                            }));
-                          }}
-                          className="w-full bg-white border border-stone-900 rounded-lg p-2 font-mono text-xs"
-                        />
-                      </div>
+                      <input
+                        type="number"
+                        min={q.min || 1}
+                        max={q.max || 10}
+                        value={Number(key?.correctAnswer || 10)}
+                        onChange={(e) => {
+                          setAnswerKey((prev) => ({
+                            ...prev,
+                            [q.id]: {
+                              ...prev[q.id],
+                              correctAnswer: Number(e.target.value),
+                            },
+                          }));
+                        }}
+                        className="w-full border rounded-xl p-2 font-mono text-xs focus:outline-none bg-slate-900 border-white/10"
+                      />
                     )}
                   </div>
                 );
               })}
             </div>
 
-            <div className="pt-3 border-t border-stone-200 flex items-center justify-between">
+            <div
+              className="pt-3 border-t flex items-center justify-between"
+              style={{ borderColor: theme.colors.borderSecondary }}
+            >
               <button
                 type="button"
                 onClick={handleResetAnswerKey}
-                className="px-3 py-2 rounded-xl text-xs font-mono font-bold text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-300 transition"
+                className="px-3 py-2 rounded-xl text-xs font-mono font-bold text-rose-400 hover:bg-rose-950/30 transition cursor-pointer"
               >
                 Reset to Defaults
               </button>
@@ -796,14 +854,18 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAnswerKeyModal(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-900 bg-white font-mono text-xs font-bold"
+                  className="px-4 py-2 rounded-xl border font-mono text-xs font-bold cursor-pointer hover:bg-white/10"
+                  style={{
+                    borderColor: theme.colors.borderSecondary,
+                    color: theme.colors.textSecondary,
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSaveAnswerKey(answerKey)}
-                  className="px-4 py-2 rounded-xl border-2 border-stone-900 bg-[#3D8F70] text-white font-mono text-xs font-bold shadow-brutal-sm cursor-pointer"
+                  className="px-4 py-2 rounded-xl font-mono text-xs font-bold cursor-pointer shadow-md bg-orange-500 text-white hover:bg-orange-600 transition"
                 >
                   Save Answer Key
                 </button>

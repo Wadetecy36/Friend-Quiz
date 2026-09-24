@@ -4,11 +4,10 @@ import { getAllResponses, deleteResponseById } from '../lib/supabase';
 import {
   Question,
   getActiveQuestions,
-  getActiveQuestionsCount,
-  getStoredQuestions,
 } from '../lib/questions';
 import { AdminTable } from '../components/AdminTable';
 import { AdminQuestionManager } from '../components/AdminQuestionManager';
+import { useDesignSystem } from '../context/DesignSystemContext';
 import {
   Download,
   Users,
@@ -20,6 +19,7 @@ import {
   Sliders,
   FileSpreadsheet,
   Trophy,
+  Bookmark,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -35,6 +35,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onViewResponse,
   onNavigateLeaderboard,
 }) => {
+  const { theme } = useDesignSystem();
   const [activeTab, setActiveTab] = useState<'responses' | 'questions'>('responses');
   const [responses, setResponses] = useState<ResponseRecord[]>([]);
   const [activeQuestions, setActiveQuestions] = useState<Question[]>(getActiveQuestions());
@@ -107,17 +108,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [responses, activeQuestions]);
 
   return (
-    <div className="space-y-7 pb-12">
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-stone-900">
+    <div className="space-y-7 pb-12 animate-note-entrance">
+      {/* Top Banner / Actions with Notes Aesthetic */}
+      <div
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b"
+        style={{ borderColor: theme.colors.border }}
+      >
         <div>
-          <div className="flex items-center gap-2 mb-1.5 font-mono text-xs text-stone-600">
-            <span className="font-bold text-stone-900 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#3D8F70]" /> ADMIN VERIFIED:
+          <div className="flex items-center gap-2 mb-1.5 font-mono text-xs">
+            <span className="font-bold flex items-center gap-1.5 text-orange-400">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              ADMIN VERIFIED:
             </span>
-            <span>{adminEmail}</span>
+            <span style={{ color: theme.colors.textSecondary }}>{adminEmail}</span>
           </div>
-          <h2 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
+          <h2
+            className="text-2xl sm:text-4xl font-black tracking-tight"
+            style={{
+              fontFamily: theme.typography.displayFont,
+              color: theme.colors.textPrimary,
+            }}
+          >
             Creator Dashboard
           </h2>
         </div>
@@ -126,9 +137,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {onNavigateLeaderboard && (
             <button
               onClick={onNavigateLeaderboard}
-              className="px-3.5 py-2 rounded-2xl border-2 border-stone-900 bg-[#F9C84E] hover:bg-[#eab332] text-stone-900 shadow-brutal-sm shadow-brutal-hover text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              className="interactive-option px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              style={{
+                backgroundColor: theme.colors.surfaceSubtle,
+                borderColor: theme.colors.borderSecondary,
+                color: theme.colors.textPrimary,
+              }}
             >
-              <Trophy className="w-3.5 h-3.5" />
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
               <span>Leaderboards</span>
             </button>
           )}
@@ -136,7 +152,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             onClick={fetchResponses}
             disabled={loading}
-            className="px-3.5 py-2 rounded-2xl border-2 border-stone-900 bg-white hover:bg-stone-50 text-stone-900 shadow-brutal-sm shadow-brutal-hover text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="interactive-option px-3.5 py-2 rounded-xl border text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+            style={{
+              backgroundColor: theme.colors.surfaceSubtle,
+              borderColor: theme.colors.borderSecondary,
+              color: theme.colors.textPrimary,
+            }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -145,7 +166,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             onClick={handleExportCSV}
             disabled={responses.length === 0}
-            className="px-4 py-2 rounded-2xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white shadow-brutal-sm shadow-brutal-hover text-xs font-bold flex items-center gap-2 transition disabled:opacity-40 cursor-pointer"
+            className="interactive-option px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition disabled:opacity-40 cursor-pointer shadow-sm"
+            style={{
+              backgroundColor: '#10B981',
+            }}
           >
             <Download className="w-3.5 h-3.5 stroke-[2.5]" />
             Export CSV
@@ -153,7 +177,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <button
             onClick={onLogout}
-            className="px-3.5 py-2 rounded-2xl border-2 border-stone-900 bg-white hover:bg-rose-50 text-rose-800 shadow-brutal-sm shadow-brutal-hover text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="interactive-option px-3.5 py-2 rounded-xl border text-rose-400 border-rose-500/30 hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign Out
@@ -162,14 +186,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Main Admin Section Tabs */}
-      <div className="flex p-1.5 bg-[#FAF7F0] border-2 border-stone-900 rounded-2xl shadow-brutal-sm gap-2">
+      <div
+        className="flex p-1.5 border rounded-2xl gap-2 shadow-sm"
+        style={{
+          backgroundColor: theme.colors.surfaceSubtle,
+          borderColor: theme.colors.border,
+        }}
+      >
         <button
           onClick={() => setActiveTab('responses')}
           className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'responses'
-              ? 'bg-stone-900 text-white shadow-sm'
-              : 'text-stone-700 hover:text-stone-950'
+              ? 'bg-orange-500 text-white shadow-md'
+              : 'hover:text-white'
           }`}
+          style={{
+            color: activeTab === 'responses' ? '#FFFFFF' : theme.colors.textSecondary,
+          }}
         >
           <FileSpreadsheet className="w-4 h-4" />
           <span>Responses & Data ({responses.length})</span>
@@ -179,9 +212,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onClick={() => setActiveTab('questions')}
           className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'questions'
-              ? 'bg-[#3D8F70] text-white shadow-sm'
-              : 'text-stone-700 hover:text-stone-950'
+              ? 'bg-orange-500 text-white shadow-md'
+              : 'hover:text-white'
           }`}
+          style={{
+            color: activeTab === 'questions' ? '#FFFFFF' : theme.colors.textSecondary,
+          }}
         >
           <Sliders className="w-4 h-4" />
           <span>Custom Questions & Answers ({activeQuestions.length} Qs)</span>
@@ -192,46 +228,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="space-y-6">
           {/* Metrics Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-5 shadow-brutal">
-              <div className="flex items-center justify-between text-stone-600 text-xs font-mono uppercase font-bold mb-2">
+            <div
+              className="border rounded-2xl p-5 shadow-sm transition hover:border-orange-500/40"
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              }}
+            >
+              <div
+                className="flex items-center justify-between text-xs font-mono uppercase font-bold mb-2"
+                style={{ color: theme.colors.textSecondary }}
+              >
                 <span>Total Participants</span>
-                <Users className="w-4 h-4 text-stone-800" />
+                <Users className="w-4 h-4 text-orange-400" />
               </div>
-              <div className="text-3xl sm:text-4xl font-black text-stone-900">
+              <div
+                className="text-3xl sm:text-4xl font-black"
+                style={{ color: theme.colors.textPrimary }}
+              >
                 {metrics.total}
               </div>
-              <p className="font-mono text-xs text-stone-500 mt-1">Unique names claimed</p>
+              <p
+                className="font-mono text-xs mt-1"
+                style={{ color: theme.colors.textSecondary }}
+              >
+                Unique names claimed
+              </p>
             </div>
 
-            <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-5 shadow-brutal">
-              <div className="flex items-center justify-between text-stone-600 text-xs font-mono uppercase font-bold mb-2">
+            <div
+              className="border rounded-2xl p-5 shadow-sm transition hover:border-emerald-500/40"
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              }}
+            >
+              <div
+                className="flex items-center justify-between text-xs font-mono uppercase font-bold mb-2"
+                style={{ color: theme.colors.textSecondary }}
+              >
                 <span>Finished All {activeQuestions.length}</span>
-                <CheckCircle2 className="w-4 h-4 text-[#3D8F70]" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="text-3xl sm:text-4xl font-black text-stone-900">
+              <div className="text-3xl sm:text-4xl font-black text-emerald-400">
                 {metrics.completed}
               </div>
-              <p className="font-mono text-xs text-stone-500 mt-1">
+              <p
+                className="font-mono text-xs mt-1"
+                style={{ color: theme.colors.textSecondary }}
+              >
                 {metrics.total > 0
                   ? `${Math.round((metrics.completed / metrics.total) * 100)}% completion rate`
                   : 'Waiting for completions'}
               </p>
             </div>
 
-            <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-5 shadow-brutal">
-              <div className="flex items-center justify-between text-stone-600 text-xs font-mono uppercase font-bold mb-2">
+            <div
+              className="border rounded-2xl p-5 shadow-sm transition hover:border-orange-500/40"
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              }}
+            >
+              <div
+                className="flex items-center justify-between text-xs font-mono uppercase font-bold mb-2"
+                style={{ color: theme.colors.textSecondary }}
+              >
                 <span>Average Progress</span>
-                <BarChart3 className="w-4 h-4 text-[#E05338]" />
+                <BarChart3 className="w-4 h-4 text-orange-400" />
               </div>
-              <div className="text-3xl sm:text-4xl font-black text-stone-900">
+              <div
+                className="text-3xl sm:text-4xl font-black"
+                style={{ color: theme.colors.textPrimary }}
+              >
                 {metrics.avgPercentage}%
               </div>
-              <p className="font-mono text-xs text-stone-500 mt-1">Across all respondents</p>
+              <p
+                className="font-mono text-xs mt-1"
+                style={{ color: theme.colors.textSecondary }}
+              >
+                Across all respondents
+              </p>
             </div>
           </div>
 
           {error && (
-            <div className="p-4 rounded-2xl border-2 border-stone-900 bg-rose-50 text-rose-950 font-mono text-xs">
+            <div className="p-4 rounded-xl border border-rose-500/40 bg-rose-950/20 text-rose-300 font-mono text-xs">
               Error: {error}
             </div>
           )}

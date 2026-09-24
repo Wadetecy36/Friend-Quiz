@@ -1,125 +1,204 @@
-# How Well Do You Know Me? — Questionnaire App & Admin Portal
+# HotSeat — The Official Denzel Questionnaire 🔥
 
-A production-ready full-stack questionnaire application built with **React**, **TypeScript**, **Tailwind CSS**, and **Supabase (PostgreSQL + Row-Level Security + Auth)**.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+![React 19](https://img.shields.io/badge/React-19-blue?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
+![Vite](https://img.shields.io/badge/Vite-8.x-purple?logo=vite)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38B2AC?logo=tailwind-css)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20Auth%20%2B%20RLS-3ECF8E?logo=supabase)
+![Theme](https://img.shields.io/badge/Theme-Molten%20Lava%20Orange-F97316)
 
----
-
-## Architecture & Security Highlights
-
-1. **Participant Flow (Zero-Auth Session Context)**
-   - Participants claim a unique name on the landing page via an atomic PostgreSQL RPC (`claim_name`).
-   - Duplicate names are blocked at the database layer with friendly validation.
-   - The session persists across browser refreshes via `localStorage` and Supabase RPC context (`set_participant_context`), enforcing Row Level Security (RLS) so participants can only access and update their own responses.
-   - Answers auto-save continuously on change with a 500ms debounce.
-
-2. **Admin Flow (Hardened Role-Based Access & Dynamic Quiz Builder)**
-   - Authentication powered by Supabase Auth (email + password).
-   - Only accounts whose user ID is registered in the `public.admins` table can access the admin dashboard. Unauthorized accounts are immediately rejected and signed out.
-   - **Dynamic Quiz Builder**:
-     - Customize quiz length from a **minimum of 5 to a maximum of 20 questions** using a real-time slider and quick presets (5, 8, 10, 12, 15, 20).
-     - Create custom questions and answers for **Multiple Choice (Select)**, **Open Text**, and **Rating Scale (1–10)**.
-     - Designate the official correct answer and accepted aliases/alternatives directly in the builder.
-     - Reorder questions (Move Up / Down), edit prompts and lore notes, and delete questions (guaranteeing minimum 5).
-     - Built-in **Idea Library** with 1-click preset templates.
-   - **Split Leaderboards**:
-     - **Hall of Fame (100% Club)**: Participants who scored all questions correct.
-     - **Hall of Shame (Got Questions Wrong)**: Ranked by most mistakes with hilarious custom roasts and mistake inspection.
-   - Real-time response inspection, completion percentages, search & filtering, and one-click CSV export with detailed answer breakdowns.
-
-3. **Database Security**
-   - RLS strictly enforced on both `responses` and `admins` tables.
-   - Admin access governed by `exists (select 1 from public.admins where id = auth.uid())`.
-   - Security Definer RPCs isolate name claiming and session configuration.
+> **"How well do you really know Denzel?"**  
+> An interactive, high-stakes friendship questionnaire with real-time scoring, live leaderboards, brutal custom roasts, and a hardened Supabase admin portal.
 
 ---
 
-## Quick Start / Setup Steps
+## ✨ Features
 
-### Step 1: Create a Supabase Project
-1. Go to [supabase.com](https://supabase.com) and create a new project.
-2. Note down your **Project URL** and **Anon / Public Key** from **Project Settings → API**.
+- **🔥 Molten Lava Orange Aesthetics**: High-energy tactile UI with dark volcanic obsidian surfaces, warm amber highlights, and haptic audio sound effects.
+- **⚡ Zero-Auth Participant Experience**: Participants claim a unique nickname with zero sign-up friction. Names are reserved atomically in PostgreSQL.
+- **💾 Real-Time Auto-Save**: Participant answers save continuously with a 500ms debounce. Safe against accidental refreshes and browser disconnects.
+- **🏆 Live Dual Leaderboards**:
+  - **Hall of Fame (100% Club)**: Participants who scored a perfect 100%, ranked by submission speed.
+  - **Hall of Shame**: Ranked by mistakes made, complete with personalized tier titles and hilarious roasts.
+  - **Interactive Modals**: Click any participant card to view their accuracy summary (correct count, wrong count, and rank). Full answer sheets are protected and exclusively visible to verified admins.
+- **🛡️ Secure Creator Admin Portal**:
+  - Admin login powered by Supabase Auth with Row Level Security (RLS) checks.
+  - **Dynamic Quiz Builder**: Adjust quiz length (5 to 20 questions), edit multiple choice, scales, or open-ended questions, designate official answers, and reorder questions.
+  - **Participant Breakdown & CSV Export**: Inspect individual participant responses and download timestamped CSV data with one click.
+- **🔒 Enterprise-Grade PostgreSQL Security**:
+  - Row Level Security (RLS) enabled on all tables.
+  - `is_admin()` Security Definer helper prevents infinite subquery recursion.
+  - Participant session context isolated via parameterized PostgreSQL RPC functions.
 
-### Step 2: Apply the Database Migration
-1. In the Supabase Dashboard, navigate to the **SQL Editor**.
-2. Open or paste the contents of `supabase/migrations/01_schema.sql`.
-3. Click **Run**. This provisions:
-   - The `responses` table with JSONB answers and unique constraint
-   - The `admins` table linked to `auth.users`
-   - Row Level Security policies for both participants and admins
-   - Atomic RPC functions `claim_name` and `set_participant_context`
-   - Automatic `updated_at` timestamps
+---
 
-### Step 3: Create an Admin User (Two Easy Methods)
+## 🚀 One-Click Deploy to Vercel
 
-**Method A: In-App Admin Sign Up (Recommended)**
-1. Open the app and click **Quiz Creator Admin Portal** at the bottom (or the **Admin** shield icon in the top header).
-2. Select the **Sign Up** tab.
-3. Enter your email (e.g. `mensahdenzel285@gmail.com`) and choose a password (minimum 6 characters).
-4. Click **Create Admin Account**.
-5. Your account is automatically registered in Supabase Authentication and granted admin permissions in the `public.admins` table!
+### 1. Push to GitHub
+If you haven't already, push or sync this repository to your GitHub account:
+```bash
+git init
+git add .
+git commit -m "Initial commit of HotSeat questionnaire app"
+git branch -M main
+git remote add origin https://github.com/<your-username>/hotseat-quiz.git
+git push -u origin main
+```
 
-> **Note on Email Verification Redirecting to localhost:**
-> By default, Supabase sets `Site URL` to `http://localhost:3000`.
-> - If you click the email verification link and see "localhost refused to connect", your email **has already been confirmed** in Supabase! You can simply return to the app, switch to the **Sign In** tab, and enter your password.
-> - To make future verification links redirect back to your live app: In Supabase Dashboard, go to **Authentication → URL Configuration**, and paste your app's live URL into **Site URL** and **Redirect URLs**.
-> - Alternatively, in Supabase Dashboard → **Authentication → Providers → Email**, turn off **"Confirm email"** for instant 1-step signups.
+### 2. Import into Vercel
+1. Log into [Vercel](https://vercel.com) and click **"Add New..." → "Project"**.
+2. Select your `hotseat-quiz` repository.
+3. Vercel will automatically detect **Vite** as the framework preset (configured via `vercel.json`).
 
-**Method B: Via Supabase Dashboard (Manual)**
-1. In the Supabase Dashboard, go to **Authentication → Users**.
-2. Click **Add User** → **Create User**, and enter your admin email and password.
-3. Copy the newly created user's **User UID**.
-4. Go back to the **SQL Editor** and run:
+### 3. Add Environment Variables in Vercel
+Under the **Environment Variables** section in the Vercel import screen, add:
+
+| Variable | Value | Description |
+|---|---|---|
+| `VITE_SUPABASE_URL` | `https://your-project-id.supabase.co` | Your Supabase Project URL |
+| `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOi...` | Your Supabase Public Anonymous API Key |
+
+### 4. Click Deploy
+Vercel will build the Vite app in seconds and assign you a production URL (e.g. `https://hotseat-quiz.vercel.app`).
+
+---
+
+## 🗄️ Supabase Backend Setup
+
+### Step 1: Create a Free Supabase Project
+1. Head over to [supabase.com](https://supabase.com) and create a new project.
+2. Once provisioned, navigate to **Project Settings → API** and copy:
+   - **Project URL** (`https://xyzcompany.supabase.co`)
+   - **anon public** key
+
+### Step 2: Run the SQL Migration
+1. In the Supabase Dashboard, click **SQL Editor** from the left navigation bar.
+2. Click **New query**.
+3. Open [`supabase/schema.sql`](./supabase/schema.sql) in this repository, copy its entire contents, paste it into the editor, and click **Run**.
+4. This script sets up:
+   - `public.responses` table with JSONB answers and unique participant constraints
+   - `public.admins` table referencing `auth.users(id)`
+   - Row Level Security (RLS) policies for anonymous participants and authenticated admins
+   - Atomic RPC functions: `claim_name`, `set_participant_context`, and `register_admin_user`
+   - Automated timestamp triggers
+
+### Step 3: Configure Authentication & Redirect URLs
+1. In Supabase Dashboard, go to **Authentication → URL Configuration**.
+2. Set **Site URL** to your Vercel deployment URL (e.g. `https://your-app.vercel.app`).
+3. Under **Redirect URLs**, add:
+   - `https://your-app.vercel.app/**`
+   - `http://localhost:3000/**` (for local development)
+4. *(Optional for instant sign-in)*: Under **Authentication → Providers → Email**, you can disable **"Confirm email"** if you want instant admin signups without requiring an email confirmation link.
+
+### Step 4: Create Your Creator Admin Account
+You can create your admin account in either of two ways:
+
+#### Option A: In-App Admin Sign-Up (Recommended)
+1. Open your deployed HotSeat app in the browser.
+2. Click the **Admin Shield icon** in the top navigation bar (or click "Creator Admin Portal" in the footer).
+3. Switch to the **Sign Up** tab.
+4. Enter your email and password (minimum 6 characters), then click **Create Admin Account**.
+5. The built-in RPC `register_admin_user` immediately provisions your user in `public.admins`.
+
+#### Option B: Manual Provisioning via Supabase Dashboard
+1. In Supabase Dashboard, go to **Authentication → Users → Add User → Create User**.
+2. Enter your email and password, then copy the generated **User UID**.
+3. In the **SQL Editor**, run:
    ```sql
    insert into public.admins (id, email)
    values ('<PASTE-USER-UID-HERE>', 'your-email@example.com')
    on conflict (id) do nothing;
    ```
 
-### Step 4: Configure Environment Variables
-Create a `.env` (or `.env.local`) file in the root folder with:
-```bash
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-*(Note: If environment variables are not yet configured, the app includes a Live In-Browser Demo fallback and interactive credential configuration dialog).*
+---
 
-### Step 5: Install and Run Locally
+## 💻 Local Development Setup
+
+To run and test the project locally on your machine:
+
 ```bash
+# 1. Clone the repository
+git clone https://github.com/<your-username>/hotseat-quiz.git
+cd hotseat-quiz
+
+# 2. Install dependencies
 npm install
+
+# 3. Configure local environment variables
+cp .env.example .env.local
+# Edit .env.local and add your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+
+# 4. Start the Vite development server
 npm run dev
+
+# 5. Build for production (verifies TypeScript types & assets)
+npm run build
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
+├── .env.example            # Template for environment variables (Vercel & local)
+├── vercel.json             # Vercel deployment config, SPA rewrites & cache headers
 ├── supabase/
+│   ├── schema.sql          # Complete copy-pasteable PostgreSQL schema & RLS rules
 │   └── migrations/
-│       └── 01_schema.sql       # Database schema, RLS policies, RPC functions
+│       └── 01_schema.sql   # Versioned migration file
+├── public/                 # Static public assets
 ├── src/
-│   ├── lib/
-│   │   ├── supabase.ts         # Supabase client, demo emulation, and DB operations
-│   │   ├── questions.ts        # 12 questions definition & types
-│   │   └── utils.ts            # Debounce utility, CSV export generator, percentage helpers
-│   ├── components/
-│   │   ├── Layout.tsx          # App header, brand bar, and connection status
-│   │   ├── QuestionCard.tsx    # Multi-type question input (text, select, 1-10 scale)
-│   │   ├── ProgressBar.tsx     # Animated progress indicator & completion percentage
-│   │   └── AdminTable.tsx      # Response listing, search, status, and detail triggers
-│   ├── pages/
-│   │   ├── Landing.tsx         # Participant name claim and resume portal
-│   │   ├── Questionnaire.tsx   # Quiz view with auto-save and completion banner
-│   │   ├── AdminLogin.tsx      # Secure email/password login with role verification
-│   │   ├── AdminDashboard.tsx  # Admin metrics, CSV export, and response management
-│   │   └── AdminResponse.tsx   # Detailed answer viewer for single participant
+│   ├── components/         # Reusable UI components
+│   │   ├── AdminTable.tsx             # Responses table with search and progress bars
+│   │   ├── Layout.tsx                 # Header, HotSeat flame logo, and navigation
+│   │   ├── ParticipantDetailModal.tsx # Participant accuracy modal with admin view guard
+│   │   ├── ProgressBar.tsx            # Animated progress indicator
+│   │   ├── QuestionBuilder.tsx        # Dynamic quiz customization panel
+│   │   └── QuestionCard.tsx           # Interactive question renderer (select, scale, text)
+│   ├── context/
+│   │   └── DesignSystemContext.tsx    # Theme provider & custom design system tokens
 │   ├── hooks/
-│   │   ├── useParticipant.ts   # Participant session persistence & context management
-│   │   └── useAdminAuth.ts     # Admin auth state, login/logout, and RBAC verification
-│   ├── App.tsx                 # Router, route guard, and global connection modal
-│   ├── main.tsx                # Entry point
-│   └── index.css               # Tailwind CSS styles & typography
-├── package.json
-└── README.md
+│   │   ├── useAdminAuth.ts            # Supabase auth, session handling & role check
+│   │   └── useParticipant.ts          # Session persistence & auto-save hook
+│   ├── lib/
+│   │   ├── audio.ts                   # Web Audio API haptics & confetti fireworks
+│   │   ├── designSystems.ts           # Lava orange palette & geometry configuration
+│   │   ├── questions.ts               # Default questions & scoring logic
+│   │   ├── supabase.ts                # Supabase client & fallback emulation
+│   │   └── utils.ts                   # Debounce, CSV export, and score calculators
+│   ├── pages/
+│   │   ├── AdminDashboard.tsx         # Creator metrics, question builder, and response data
+│   │   ├── AdminLogin.tsx             # Supabase Auth sign-in / sign-up modal
+│   │   ├── AdminResponse.tsx          # Single participant full-answer inspector
+│   │   ├── Landing.tsx                # Nickname entry & instructions
+│   │   ├── Leaderboard.tsx            # Hall of Fame & Hall of Shame podiums
+│   │   └── Questionnaire.tsx          # Active quiz screen with auto-save & score summary
+│   ├── App.tsx                        # Main application router
+│   ├── main.tsx                       # React DOM entry point
+│   └── index.css                      # Tailwind CSS v4 directives & keyframe animations
+├── index.html              # HTML shell with meta tags & Google fonts
+├── package.json            # Node.js dependencies and scripts
+├── tsconfig.json           # TypeScript configuration
+└── vite.config.ts          # Vite build and plugin setup
 ```
+
+---
+
+## 🛡️ Security Model & Privacy
+
+1. **Row Level Security (RLS)**:
+   - The `responses` table requires an authenticated admin session to view full participant answers.
+   - Public visitors can only view aggregate accuracy metrics (total score and percentage) via the leaderboard.
+2. **Zero Sensitive Secrets in Client Code**:
+   - Only public Supabase parameters (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`) are exposed to the client. The Supabase service role key is **never** embedded or needed in client-side code.
+3. **Parametric Sanitization**:
+   - Participant names and answers are processed through parameterized queries and stored as structured JSONB documents, preventing SQL injection.
+
+---
+
+## 📄 License
+
+MIT © [Denzel Mensah](https://github.com)

@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { getActiveQuestions, Question } from '../lib/questions';
+import React, { useState, useMemo, useEffect } from 'react';
+import { getActiveQuestions } from '../lib/questions';
 import { QuestionCard } from '../components/QuestionCard';
 import { ProgressBar } from '../components/ProgressBar';
-import { calculateCompletion } from '../lib/utils';
+import { calculateCompletion, getParticipantAvatar } from '../lib/utils';
 import { scoreResponse } from '../lib/scoring';
 import { SaveStatus } from '../hooks/useParticipant';
-import { Check, CheckCircle2, RotateCcw, ArrowRight, Trophy, Sparkles } from 'lucide-react';
+import { useDesignSystem } from '../context/DesignSystemContext';
+import { Check, ArrowRight, Trophy, Bookmark, Volume2, VolumeX, Share2 } from 'lucide-react';
+import { triggerCelebration, sounds } from '../lib/audio';
 
 interface QuestionnaireProps {
   participantName: string;
@@ -24,6 +26,7 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
   onClearSession,
   onNavigateLeaderboard,
 }) => {
+  const { theme } = useDesignSystem();
   const activeQuestions = useMemo(() => getActiveQuestions(), []);
 
   // Start on first unanswered question or 0
@@ -36,26 +39,29 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
   });
 
   const [isCompletedView, setIsCompletedView] = useState(false);
+  const [soundActive, setSoundActive] = useState(() => sounds.isEnabled());
 
   const currentQuestion = activeQuestions[currentIndex];
-  const { count, percentage } = calculateCompletion(answers, activeQuestions.length);
-  const isAllAnswered = count === activeQuestions.length;
-  const isCurrentAnswered =
-    currentQuestion &&
-    answers[currentQuestion.id] !== undefined &&
-    answers[currentQuestion.id] !== null &&
-    String(answers[currentQuestion.id]).trim() !== '';
+  const { count } = calculateCompletion(answers, activeQuestions.length);
+
+  const toggleSound = () => {
+    const updated = sounds.toggleSound();
+    setSoundActive(updated);
+  };
 
   const handleNext = () => {
     if (currentIndex < activeQuestions.length - 1) {
+      sounds.playNext();
       setCurrentIndex((prev) => prev + 1);
     } else {
+      sounds.playFanfare();
       setIsCompletedView(true);
     }
   };
 
   const handleBack = () => {
     if (currentIndex > 0) {
+      sounds.playClick();
       setCurrentIndex((prev) => prev - 1);
     }
   };
@@ -74,86 +80,161 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
     );
   }, [answers, participantName, activeQuestions]);
 
-  // Completion summary view
+  // Trigger celebration confetti when completion screen opens
+  useEffect(() => {
+    if (isCompletedView) {
+      const mode = userScore.isAllCorrect ? 'gold' : userScore.scorePercent >= 60 ? 'rainbow' : 'standard';
+      triggerCelebration(mode);
+    }
+  }, [isCompletedView, userScore.isAllCorrect, userScore.scorePercent]);
+
+  // Completion summary view (Clean, uncluttered, modern minimal)
   if (isCompletedView) {
     return (
-      <div className="max-w-xl mx-auto py-8 text-center space-y-6">
-        <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-8 shadow-brutal space-y-5">
-          <div className="w-16 h-16 rounded-full border-2 border-stone-900 bg-[#F9C84E] flex items-center justify-center mx-auto shadow-brutal-sm">
-            <Check className="w-8 h-8 stroke-[3] text-stone-900" />
-          </div>
-
-          <h2 className="text-3xl font-black text-stone-900 tracking-tight">
-            You're all done!
-          </h2>
-
-          <p className="text-sm font-medium text-stone-600 max-w-md mx-auto">
-            Thanks for taking the questionnaire, <span className="font-bold text-stone-900">{participantName}</span>. Your answers have been recorded.
-          </p>
-
-          <div className="p-4 rounded-2xl bg-[#FAF7F0] border-2 border-stone-900 text-left font-mono text-xs text-stone-700 space-y-2">
-            <div className="flex justify-between">
-              <span>Answered Questions:</span>
-              <span className="font-bold text-stone-900">{count} / {activeQuestions.length}</span>
+      <div className="max-w-md mx-auto py-6 sm:py-10 text-center space-y-4 px-2">
+        <div className="relative animate-note-entrance">
+          <div
+            className="p-6 sm:p-8 border space-y-5 transition-all relative overflow-hidden"
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              borderRadius: theme.geometry.cardRadius,
+              borderWidth: theme.geometry.borderWidth,
+              boxShadow: theme.geometry.shadowCard,
+              color: theme.colors.textPrimary,
+            }}
+          >
+            {/* Participant Avatar & Verified Badge */}
+            <div className="relative inline-block mx-auto">
+              <div
+                className="w-20 h-20 rounded-3xl border flex items-center justify-center mx-auto shadow-xl text-4xl select-none animate-float"
+                style={{
+                  backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                  borderColor: 'rgba(99, 102, 241, 0.35)',
+                }}
+              >
+                {getParticipantAvatar(participantName)}
+              </div>
+              <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center absolute -bottom-1 -right-1 border-2 border-slate-950 shadow">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>Correct Score:</span>
-              <span className="font-bold text-[#3D8F70]">
-                {userScore.correctCount} / {activeQuestions.length} ({userScore.scorePercent}%)
+
+            {/* Name & Headline */}
+            <div>
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-orange-400 block mb-1">
+                Quiz Complete
               </span>
+              <h2
+                className="text-2xl sm:text-3xl font-black tracking-tight"
+                style={{ fontFamily: theme.typography.displayFont }}
+              >
+                {participantName}
+              </h2>
             </div>
-            <div className="flex justify-between">
-              <span>Status:</span>
-              <span className="font-bold text-stone-900">{userScore.roastTitle}</span>
-            </div>
-            <div className="pt-1 text-[11px] text-stone-500 italic">
-              "{userScore.roastDescription}"
-            </div>
-          </div>
 
-          {onNavigateLeaderboard && (
-            <button
-              onClick={onNavigateLeaderboard}
-              className="w-full py-4 px-6 rounded-2xl border-2 border-stone-900 bg-[#F9C84E] hover:bg-[#eab332] text-stone-900 font-black text-sm sm:text-base shadow-brutal shadow-brutal-hover flex items-center justify-center gap-2 cursor-pointer transition"
+            {/* Focused Score Showcase */}
+            <div
+              className="p-4 rounded-2xl border text-center font-mono space-y-2"
+              style={{
+                backgroundColor: theme.colors.surfaceSubtle,
+                borderColor: theme.colors.borderSecondary || theme.colors.border,
+              }}
             >
-              <Trophy className="w-5 h-5 text-stone-900" />
-              <span>See Where You Rank on Leaderboard</span>
-            </button>
-          )}
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black text-emerald-400">
+                  {userScore.correctCount}
+                </span>
+                <span className="text-lg font-bold opacity-50" style={{ color: theme.colors.textSecondary }}>
+                  / {activeQuestions.length}
+                </span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full ml-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                  {userScore.scorePercent}%
+                </span>
+              </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              onClick={() => {
-                setIsCompletedView(false);
-                setCurrentIndex(0);
-              }}
-              className="flex-1 py-3 px-5 rounded-2xl border-2 border-stone-900 bg-[#FAF7F0] hover:bg-white text-stone-900 font-bold text-xs shadow-brutal-sm cursor-pointer"
-            >
-              Review My Answers
-            </button>
-            <button
-              onClick={() => {
-                if (confirm('Start a fresh questionnaire session with another name?')) {
-                  onClearSession();
-                }
-              }}
-              className="flex-1 py-3 px-5 rounded-2xl border-2 border-stone-900 bg-[#3D8F70] hover:bg-[#347b60] text-white font-bold text-xs shadow-brutal-sm cursor-pointer"
-            >
-              New Participant
-            </button>
+              <div className="text-xs font-bold text-orange-400">
+                {userScore.roastTitle}
+              </div>
+
+              {/* Concise Note */}
+              <p
+                className="text-[11px] font-serif italic pt-1 border-t opacity-80"
+                style={{
+                  borderColor: theme.colors.borderSecondary,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                "{userScore.roastDescription}"
+              </p>
+            </div>
+
+            {/* Primary Action: See Where You Rank */}
+            {onNavigateLeaderboard && (
+              <button
+                onClick={onNavigateLeaderboard}
+                className="interactive-option w-full py-4 px-6 border font-bold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer transition shadow-lg"
+                style={{
+                  backgroundColor: theme.colors.accent,
+                  color: theme.colors.accentText,
+                  borderColor: theme.colors.accent,
+                  borderRadius: theme.geometry.cardRadiusSm,
+                  borderWidth: theme.geometry.borderWidth,
+                }}
+              >
+                <Trophy className="w-5 h-5 text-amber-300 animate-float" />
+                <span>See Where You Rank on Leaderboard</span>
+              </button>
+            )}
+
+            {/* Minimal Auxiliary Actions: Share & Review */}
+            <div className="flex items-center gap-2 text-xs font-mono font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  const shareText = `I scored ${userScore.correctCount}/${activeQuestions.length} (${userScore.scorePercent}%) on "How Well Do You Know Denzel?"! My rank title: ${userScore.roastTitle} 👑 Test your knowledge here: ${window.location.origin}`;
+                  navigator.clipboard.writeText(shareText);
+                  alert('Score copied to clipboard! Share it in your group chat.');
+                }}
+                className="flex-1 py-2.5 px-3 border rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition hover:bg-white/5 opacity-80 hover:opacity-100"
+                style={{
+                  borderColor: theme.colors.borderSecondary,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                <Share2 className="w-3.5 h-3.5 text-orange-400" />
+                <span>Share Score</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setIsCompletedView(false);
+                  setCurrentIndex(0);
+                }}
+                className="flex-1 py-2.5 px-3 border rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition hover:bg-white/5 opacity-80 hover:opacity-100"
+                style={{
+                  borderColor: theme.colors.borderSecondary,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                <span>Review Answers</span>
+              </button>
+            </div>
           </div>
         </div>
-
-        <p className="font-mono text-xs text-stone-600">
-          Everything saves automatically. Close the tab and come back any time.
-        </p>
       </div>
     );
   }
 
   if (!currentQuestion) {
     return (
-      <div className="max-w-xl mx-auto py-12 text-center font-mono text-xs text-stone-600">
+      <div
+        className="max-w-xl mx-auto py-12 text-center font-mono text-xs"
+        style={{ color: theme.colors.textSecondary }}
+      >
         No active questions found. Check admin settings.
       </div>
     );
@@ -161,7 +242,7 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
 
   return (
     <div className="max-w-xl mx-auto py-2 sm:py-6">
-      {/* Question Counter & Terracotta Progress Bar */}
+      {/* Question Counter & Progress Bar */}
       <ProgressBar
         currentIndex={currentIndex + 1}
         totalCount={activeQuestions.length}
@@ -169,7 +250,7 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
         participantName={participantName}
       />
 
-      {/* Main Question Card */}
+      {/* Main Question Card with Notes Aesthetic & Options Animation */}
       <QuestionCard
         question={currentQuestion}
         index={currentIndex}
@@ -183,7 +264,15 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
           type="button"
           onClick={handleBack}
           disabled={currentIndex === 0}
-          className="flex-1 py-3.5 px-6 rounded-2xl border-2 border-stone-900 bg-white hover:bg-stone-100 text-stone-900 font-bold text-sm shadow-brutal-sm shadow-brutal-hover transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="interactive-option flex-1 py-3.5 px-6 border font-bold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          style={{
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+            borderRadius: theme.geometry.cardRadiusSm,
+            borderWidth: theme.geometry.borderWidth,
+            boxShadow: theme.geometry.shadowSm,
+            color: theme.colors.textPrimary,
+          }}
         >
           Back
         </button>
@@ -191,11 +280,21 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
         <button
           type="button"
           onClick={handleNext}
-          className={`flex-[2] py-3.5 px-6 rounded-2xl border-2 border-stone-900 text-white font-black text-sm shadow-brutal shadow-brutal-hover flex items-center justify-center gap-2 transition cursor-pointer ${
-            currentIndex === activeQuestions.length - 1
-              ? 'bg-[#3D8F70] hover:bg-[#347b60]'
-              : 'bg-stone-900 hover:bg-stone-800'
-          }`}
+          className="interactive-option flex-[2] py-3.5 px-6 border font-bold text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-lg"
+          style={{
+            backgroundColor:
+              currentIndex === activeQuestions.length - 1
+                ? theme.colors.statusCorrect
+                : theme.colors.accent,
+            color:
+              currentIndex === activeQuestions.length - 1
+                ? '#FFFFFF'
+                : theme.colors.accentText,
+            borderColor: theme.colors.border,
+            borderRadius: theme.geometry.cardRadiusSm,
+            borderWidth: theme.geometry.borderWidth,
+            boxShadow: theme.geometry.shadowButton || theme.geometry.shadowSm,
+          }}
         >
           {currentIndex === activeQuestions.length - 1 ? (
             <>
@@ -212,17 +311,46 @@ export const Questionnaire: React.FC<QuestionnaireProps> = ({
       </div>
 
       {/* Bottom helper info */}
-      <div className="mt-6 flex items-center justify-between font-mono text-xs text-stone-500 px-1">
-        <span>Question {currentIndex + 1} of {activeQuestions.length}</span>
-        {onNavigateLeaderboard && (
+      <div
+        className="mt-6 flex items-center justify-between font-mono text-xs px-1"
+        style={{ color: theme.colors.textSecondary }}
+      >
+        <span>
+          Question {currentIndex + 1} of {activeQuestions.length}
+        </span>
+
+        <div className="flex items-center gap-3">
           <button
-            onClick={onNavigateLeaderboard}
-            className="hover:text-stone-900 underline flex items-center gap-1 cursor-pointer"
+            type="button"
+            onClick={toggleSound}
+            className="flex items-center gap-1 cursor-pointer transition hover:opacity-80"
+            title={soundActive ? 'Mute sound effects' : 'Unmute sound effects'}
+            style={{ color: soundActive ? theme.colors.textSecondary : theme.colors.textSecondary }}
           >
-            <Trophy className="w-3.5 h-3.5 text-stone-700" />
-            <span>Leaderboard</span>
+            {soundActive ? (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-orange-400" />
+                <span className="hidden sm:inline">Sound On</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-3.5 h-3.5 opacity-50" />
+                <span className="hidden sm:inline opacity-50">Muted</span>
+              </>
+            )}
           </button>
-        )}
+
+          {onNavigateLeaderboard && (
+            <button
+              onClick={onNavigateLeaderboard}
+              className="hover:underline flex items-center gap-1 cursor-pointer transition hover:text-orange-400"
+              style={{ color: theme.colors.textPrimary }}
+            >
+              <Trophy className="w-3.5 h-3.5" style={{ color: theme.colors.accent }} />
+              <span>Leaderboard</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

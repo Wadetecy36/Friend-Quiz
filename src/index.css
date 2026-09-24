@@ -1,60 +1,394 @@
 @import "tailwindcss";
 
+:root {
+  /* Default Design System (Midnight Studio: Molten Lava Orange Edition) */
+  --ds-canvas: #090B0E;
+  --ds-surface: #13171F;
+  --ds-surface-elevated: #1C222E;
+  --ds-surface-subtle: #0F131A;
+  --ds-border: rgba(249, 115, 22, 0.28);
+  --ds-border-sec: rgba(249, 115, 22, 0.14);
+  --ds-text-primary: #F1F5F9;
+  --ds-text-secondary: #94A3B8;
+  --ds-text-muted: #64748B;
+  --ds-accent: #F97316;
+  --ds-accent-text: #FFFFFF;
+  --ds-accent-sec: #F59E0B;
+  --ds-shadow: 4px 4px 0px #000000;
+  --ds-shadow-sm: 2px 2px 0px #000000;
+  --ds-radius-card: 28px;
+  --ds-radius-btn: 16px;
+}
+
 @layer base {
   body {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: #FAF7F0;
-    color: #1C1917;
+    background-color: var(--ds-canvas);
+    color: var(--ds-text-primary);
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', sans-serif;
   }
 
   code, pre, .font-mono {
-    font-family: 'Space Mono', monospace;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
   }
 
   .font-serif {
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-family: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
   }
 }
 
-/* Tactile Neo-Brutalist shadows from screenshot */
+/* ---------------------------------------------------------
+   LAVA LIQUID PROGRESS BAR ANIMATIONS
+--------------------------------------------------------- */
+@keyframes lavaFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes lavaPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 14px 2px rgba(249, 115, 22, 0.7), 0 0 28px 6px rgba(234, 88, 12, 0.45);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 22px 4px rgba(251, 146, 60, 0.9), 0 0 38px 10px rgba(249, 115, 22, 0.6);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes lavaBubbleRise {
+  0% {
+    transform: translateY(12px) scale(0.6);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-8px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@keyframes lavaSurfaceWave {
+  0% {
+    transform: translateX(0) scaleY(1);
+  }
+  50% {
+    transform: translateX(-25%) scaleY(1.3);
+  }
+  100% {
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+.animate-lava-flow {
+  background-size: 200% 200%;
+  animation: lavaFlow 4s ease-in-out infinite;
+}
+
+.animate-lava-glow {
+  animation: lavaPulseGlow 2.4s ease-in-out infinite;
+}
+
+.animate-lava-bubble-1 {
+  animation: lavaBubbleRise 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-lava-bubble-2 {
+  animation: lavaBubbleRise 2.8s 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-lava-bubble-3 {
+  animation: lavaBubbleRise 2.4s 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-lava-bubble-4 {
+  animation: lavaBubbleRise 3.1s 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-lava-wave {
+  animation: lavaSurfaceWave 3s ease-in-out infinite alternate;
+}
+
+/* ---------------------------------------------------------
+   ANIMATIONS & KEYFRAMES (Bringing the site alive)
+--------------------------------------------------------- */
+@keyframes noteEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes optionPop {
+  0% {
+    transform: scale(0.97);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(249, 115, 22, 0.4);
+  }
+}
+
+@keyframes shimmerGlow {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-note-entrance {
+  animation: noteEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-option-pop {
+  animation: optionPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2.5s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: floatGentle 3s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Interactive Option Button Micro-Interactions */
+.interactive-option {
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.16s ease,
+              border-color 0.16s ease,
+              box-shadow 0.16s ease;
+}
+
+.interactive-option:hover {
+  transform: translateY(-2px);
+}
+
+.interactive-option:active {
+  transform: scale(0.985);
+}
+
+/* Number scale button micro-interactions */
+.interactive-scale-btn {
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.14s ease,
+              border-color 0.14s ease,
+              box-shadow 0.14s ease;
+}
+
+.interactive-scale-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+}
+
+.interactive-scale-btn:active {
+  transform: scale(0.94);
+}
+
+/* Notes aesthetic textures */
+.note-tape {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+}
+
+.note-grid-texture {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.note-ruled-texture {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 23px,
+    rgba(255, 255, 255, 0.04) 23px,
+    rgba(255, 255, 255, 0.04) 24px
+  );
+}
+
+/* Backward compatibility with existing utility classes */
 .shadow-brutal {
-  box-shadow: 4px 4px 0px #1C1917;
+  box-shadow: var(--ds-shadow) !important;
 }
 
 .shadow-brutal-sm {
-  box-shadow: 2.5px 2.5px 0px #1C1917;
+  box-shadow: var(--ds-shadow-sm) !important;
 }
 
 .shadow-brutal-lg {
-  box-shadow: 6px 6px 0px #1C1917;
+  box-shadow: var(--ds-shadow) !important;
 }
 
 .shadow-brutal-hover {
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shadow-brutal-hover:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px #1C1917;
+  transform: scale(0.98);
+  box-shadow: var(--ds-shadow-sm) !important;
 }
 
-@keyframes brutal-stripes {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 40px 0;
-  }
+/* ---------------------------------------------------------
+   GLOBAL THEME ADAPTATION OVERRIDES FOR MIDNIGHT OBSIDIAN
+--------------------------------------------------------- */
+[data-theme="midnight-obsidian"] {
+  color-scheme: dark;
 }
 
-.animate-stripes {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.3),
-    rgba(255, 255, 255, 0.3) 12px,
-    transparent 12px,
-    transparent 24px
-  );
-  background-size: 48px 48px;
-  animation: brutal-stripes 1.2s linear infinite;
+[data-theme="midnight-obsidian"] .bg-\[\#FAF7F0\],
+[data-theme="midnight-obsidian"] .bg-\[\#FFFDF9\],
+[data-theme="midnight-obsidian"] .bg-white {
+  background-color: var(--ds-surface) !important;
+  color: var(--ds-text-primary) !important;
+}
+
+[data-theme="midnight-obsidian"] .border-stone-900,
+[data-theme="midnight-obsidian"] .border-\[\#1C1917\],
+[data-theme="midnight-obsidian"] .border-stone-200 {
+  border-color: var(--ds-border) !important;
+}
+
+[data-theme="midnight-obsidian"] .text-stone-900,
+[data-theme="midnight-obsidian"] .text-stone-800 {
+  color: var(--ds-text-primary) !important;
+}
+
+[data-theme="midnight-obsidian"] .text-stone-700,
+[data-theme="midnight-obsidian"] .text-stone-600 {
+  color: var(--ds-text-secondary) !important;
+}
+
+[data-theme="midnight-obsidian"] .text-stone-500,
+[data-theme="midnight-obsidian"] .text-stone-400 {
+  color: var(--ds-text-muted) !important;
+}
+
+[data-theme="midnight-obsidian"] .hover\:bg-stone-100:hover,
+[data-theme="midnight-obsidian"] .hover\:bg-white:hover {
+  background-color: #1A202C !important;
+}
+
+/* Fix for stats boxes on dark background */
+[data-theme="midnight-obsidian"] .bg-\[\#E8F5E9\] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+[data-theme="midnight-obsidian"] .text-\[\#1B5E20\] {
+  color: #34D399 !important;
+}
+
+[data-theme="midnight-obsidian"] .bg-\[\#FEE2E2\] {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+[data-theme="midnight-obsidian"] .text-\[\#991B1B\] {
+  color: #F87171 !important;
+}
+
+[data-theme="midnight-obsidian"] .bg-\[\#3D8F70\] {
+  background-color: #10B981 !important;
+}
+
+[data-theme="midnight-obsidian"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="midnight-obsidian"] select,
+[data-theme="midnight-obsidian"] textarea {
+  background-color: #13171F !important;
+  color: #F0F4F8 !important;
+  border-color: #262D3D !important;
+}
+[data-theme="midnight-obsidian"] input::placeholder,
+[data-theme="midnight-obsidian"] textarea::placeholder {
+  color: #64748B !important;
+}
+[data-theme="midnight-obsidian"] .divide-stone-200 > * + * {
+  border-color: #1F2432 !important;
+}
+[data-theme="midnight-obsidian"] .border-stone-300 {
+  border-color: #262D3D !important;
+}
+[data-theme="midnight-obsidian"] .bg-stone-200,
+[data-theme="midnight-obsidian"] .bg-stone-100 {
+  background-color: #1A202C !important;
+}
+
+/* Tokyo Neon Theme */
+[data-theme="tokyo-arcade"] {
+  color-scheme: dark;
+}
+[data-theme="tokyo-arcade"] .bg-\[\#FAF7F0\],
+[data-theme="tokyo-arcade"] .bg-\[\#FFFDF9\],
+[data-theme="tokyo-arcade"] .bg-white {
+  background-color: #111827 !important;
+  color: #F9FAFB !important;
+}
+[data-theme="tokyo-arcade"] .border-stone-900 {
+  border-color: #06B6D4 !important;
+}
+[data-theme="tokyo-arcade"] .text-stone-900,
+[data-theme="tokyo-arcade"] .text-stone-800 {
+  color: #F9FAFB !important;
+}
+
+/* Bauhaus Monolith */
+[data-theme="bauhaus-monolith"] .rounded-\[28px\],
+[data-theme="bauhaus-monolith"] .rounded-2xl,
+[data-theme="bauhaus-monolith"] .rounded-xl,
+[data-theme="bauhaus-monolith"] .rounded-lg,
+[data-theme="bauhaus-monolith"] .rounded-full {
+  border-radius: 0px !important;
+}
+[data-theme="bauhaus-monolith"] .border-stone-900 {
+  border-color: #000000 !important;
 }

@@ -12,7 +12,6 @@ import {
   Check,
   Sparkles,
   HelpCircle,
-  ExternalLink,
 } from 'lucide-react';
 import { QUICK_RECURSION_FIX_SQL } from '../lib/schemaSql';
 
@@ -120,49 +119,47 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
     error && (error.includes('recursion') || error.includes('42P17') || error.includes('admins'));
 
   return (
-    <div className="max-w-md mx-auto py-8 sm:py-16">
+    <div className="max-w-md mx-auto py-8 sm:py-16 text-left">
       <button
         onClick={onBackToQuiz}
-        className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-stone-600 hover:text-stone-900 mb-6 transition cursor-pointer"
+        className="btn-secondary text-xs mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Questionnaire
+        <span>Back to quiz</span>
       </button>
 
-      <div className="bg-[#FFFDF9] border-[2.5px] border-stone-900 rounded-[28px] p-6 sm:p-8 shadow-brutal space-y-5">
+      <div className="plum-card soft-glow p-7 sm:p-9 space-y-6 text-left">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl border-2 border-stone-900 bg-[#F9C84E] flex items-center justify-center text-stone-900 shadow-brutal-sm">
-              {mode === 'signup' ? (
-                <UserPlus className="w-6 h-6 stroke-[2.5]" />
-              ) : (
-                <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
-                {mode === 'signup' ? 'Create Admin' : 'Admin Portal'}
-              </h2>
-              <p className="text-xs font-mono text-stone-600">
-                {mode === 'signup' ? 'Register quiz creator account' : 'Restricted to quiz creator'}
-              </p>
-            </div>
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 avatar-gradient text-[#241533]">
+            {mode === 'signup' ? (
+              <UserPlus className="w-5 h-5" />
+            ) : (
+              <ShieldCheck className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#FBF4EA] tracking-tight">
+              {mode === 'signup' ? 'Create Admin Account' : 'Creator Admin Portal'}
+            </h2>
+            <p className="text-xs text-[#B9A8C9]">
+              {mode === 'signup' ? 'Register quiz creator access' : 'Authorized access for Denzel Mensah'}
+            </p>
           </div>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-[#FAF7F0] border-2 border-stone-900 rounded-2xl">
+        <div className="flex items-center gap-2 p-1.5 bg-white/[0.04] rounded-[18px]">
           <button
             type="button"
             onClick={() => {
               setMode('signin');
               setError(null);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-[14px] text-xs font-medium transition cursor-pointer ${
               mode === 'signin'
-                ? 'bg-[#1C1917] text-white shadow-sm'
-                : 'text-stone-700 hover:text-stone-950'
+                ? 'bg-[#FF6B4A] text-white shadow-[0_4px_16px_rgba(255,107,74,0.35)]'
+                : 'text-[#B9A8C9] hover:text-[#FBF4EA]'
             }`}
           >
             Sign In
@@ -173,10 +170,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               setMode('signup');
               setError(null);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-[14px] text-xs font-medium transition cursor-pointer ${
               mode === 'signup'
-                ? 'bg-[#1C1917] text-white shadow-sm'
-                : 'text-stone-700 hover:text-stone-950'
+                ? 'bg-[#FF6B4A] text-white shadow-[0_4px_16px_rgba(255,107,74,0.35)]'
+                : 'text-[#B9A8C9] hover:text-[#FBF4EA]'
             }`}
           >
             Sign Up
@@ -185,141 +182,111 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
         {/* Demo Mode Notice */}
         {!isLiveConfigured && (
-          <div className="p-3.5 rounded-2xl border-2 border-stone-900 bg-[#FAF7F0] text-xs font-mono text-stone-800 shadow-brutal-sm space-y-1">
-            <div className="font-bold text-amber-800">Demo Mode Active:</div>
-            <p className="text-stone-600">
-              Sign in using{' '}
+          <div className="p-4 rounded-[20px] bg-white/[0.04] text-xs text-[#FBF4EA] space-y-1 text-left">
+            <div className="text-[#FFD35C] font-semibold">Demo Mode Active</div>
+            <p className="text-[#B9A8C9]">
+              Click to use{' '}
               <button
                 type="button"
                 onClick={handleFillDemo}
-                className="font-bold underline text-stone-900 hover:text-amber-800 cursor-pointer"
+                className="underline text-[#FF6B4A] font-semibold cursor-pointer"
               >
                 admin@example.com
               </button>{' '}
-              (or enter any email to test).
+              with any password.
             </p>
           </div>
         )}
 
-        {/* Success Message & Localhost Redirect Explanation */}
+        {/* Success Message */}
         {successMessage && (
-          <div className="p-4 rounded-2xl border-2 border-stone-900 bg-[#E8F5E9] text-[#1B5E20] text-xs shadow-brutal-sm space-y-2.5">
+          <div className="p-4 rounded-[20px] bg-emerald-500/15 text-emerald-200 text-xs space-y-2 text-left">
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div className="font-semibold text-stone-900 leading-relaxed">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+              <div className="leading-relaxed">
                 {successMessage}
               </div>
-            </div>
-
-            <div className="p-3 bg-white/80 rounded-xl border border-stone-300 font-mono text-[11px] text-stone-700 space-y-1.5">
-              <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                Did the verification link redirect to localhost?
-              </div>
-              <p>
-                <strong>No problem!</strong> Clicking the link already confirmed your email on Supabase. You can now enter your password below and click <strong>Sign In</strong>!
-              </p>
             </div>
           </div>
         )}
 
-        {/* Localhost redirect helper accordion */}
-        <div className="rounded-2xl border-2 border-stone-900 bg-[#FAF7F0] p-3 text-xs shadow-brutal-sm">
+        {/* Localhost redirect helper */}
+        <div className="rounded-[20px] bg-white/[0.04] p-3.5 text-xs text-left">
           <button
             type="button"
             onClick={() => setShowRedirectHelp(!showRedirectHelp)}
-            className="w-full flex items-center justify-between text-left font-mono font-bold text-stone-800 hover:text-stone-950 cursor-pointer"
+            className="w-full flex items-center justify-between text-left text-[#B9A8C9] hover:text-[#FBF4EA] cursor-pointer"
           >
             <span className="flex items-center gap-1.5">
-              <HelpCircle className="w-4 h-4 text-amber-700" />
-              Supabase email redirecting to localhost?
+              <HelpCircle className="w-4 h-4 text-[#FFD35C]" />
+              Email link redirecting to localhost?
             </span>
-            <span className="text-[11px] text-stone-500 underline">
-              {showRedirectHelp ? 'Hide instructions' : 'See 30-sec fix'}
+            <span className="text-[11px] underline">
+              {showRedirectHelp ? 'Hide' : 'Quick fix'}
             </span>
           </button>
 
           {showRedirectHelp && (
-            <div className="mt-3 pt-3 border-t border-stone-300 font-mono text-[11px] text-stone-700 space-y-2.5 leading-relaxed">
+            <div className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-[#B9A8C9] space-y-2.5 leading-relaxed">
               <p>
-                By default, new Supabase projects set their default Site URL to <code>http://localhost:3000</code>.
+                In Supabase Dashboard → <strong>Authentication → URL Configuration</strong>, set <strong>Site URL</strong> to:
               </p>
-              <div className="space-y-1.5">
-                <div className="font-bold text-stone-900">Option 1: Fix Redirect URL (1 minute)</div>
-                <ol className="list-decimal list-inside space-y-1 text-stone-600 pl-1">
-                  <li>In your Supabase Dashboard, go to <strong>Authentication → URL Configuration</strong>.</li>
-                  <li>Set <strong>Site URL</strong> and add to <strong>Redirect URLs</strong>:</li>
-                </ol>
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="text"
-                    readOnly
-                    value={currentOrigin}
-                    className="flex-1 px-2.5 py-1.5 bg-white border border-stone-400 rounded-lg text-[10px] text-stone-800 font-mono select-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCopyAppUrl}
-                    className="px-2.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedAppUrl ? (
-                      <>
-                        <Check className="w-3 h-3 stroke-[3]" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" /> Copy URL
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={currentOrigin}
+                  className="flex-1 cream-input text-[11px] py-2 px-3"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyAppUrl}
+                  className="btn-secondary text-xs py-2 px-3 shrink-0"
+                >
+                  {copiedAppUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedAppUrl ? 'Copied' : 'Copy'}</span>
+                </button>
               </div>
-
-              <div className="pt-2 border-t border-stone-200">
-                <div className="font-bold text-stone-900">Option 2: Instant Sign-Up without email links (Easiest)</div>
-                <p className="text-stone-600 mt-1">
-                  In Supabase Dashboard → <strong>Authentication → Providers → Email</strong>, toggle <strong>OFF</strong> <em>"Confirm email"</em>. Admin accounts will log in instantly without waiting for any confirmation emails.
-                </p>
-              </div>
+              <p className="text-[11px] text-[#8C789B]">
+                Or in Auth → Providers → Email, turn off "Confirm email" for instant login.
+              </p>
             </div>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-800 font-mono">
+              <label className="block text-xs font-medium text-[#B9A8C9]">
                 Admin Email
               </label>
               {mode === 'signup' && (
                 <button
                   type="button"
                   onClick={() => handleFillSuggestedEmail('mensahdenzel285@gmail.com')}
-                  className="text-[11px] font-mono text-[#3D8F70] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-[#FF6B4A] hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <Sparkles className="w-3 h-3" /> Use my email
+                  <Sparkles className="w-3 h-3" /> Use Denzel's email
                 </button>
               )}
             </div>
             <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your.email@example.com"
                 required
-                className="w-full bg-[#FAF7F0] border-2 border-stone-900 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:bg-white shadow-brutal-sm font-mono"
+                className="cream-input text-sm"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-stone-800 mb-1.5 font-mono">
-              Password {mode === 'signup' && <span className="text-stone-500">(min 6 chars)</span>}
+            <label className="block text-xs font-medium text-[#B9A8C9] mb-1.5">
+              Password {mode === 'signup' && <span className="text-[#8C789B]">(min 6 chars)</span>}
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
               <input
                 type="password"
                 value={password}
@@ -327,56 +294,47 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                 placeholder="••••••••••••"
                 required
                 minLength={mode === 'signup' ? 6 : undefined}
-                className="w-full bg-[#FAF7F0] border-2 border-stone-900 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:bg-white shadow-brutal-sm font-mono"
+                className="cream-input text-sm"
               />
             </div>
           </div>
 
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-800 mb-1.5 font-mono">
+              <label className="block text-xs font-medium text-[#B9A8C9] mb-1.5">
                 Confirm Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="w-full bg-[#FAF7F0] border-2 border-stone-900 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:bg-white shadow-brutal-sm font-mono"
+                  className="cream-input text-sm"
                 />
               </div>
             </div>
           )}
 
           {error && (
-            <div className="p-3.5 rounded-2xl border-2 border-stone-900 bg-rose-50 text-rose-950 text-xs shadow-brutal-sm space-y-2">
+            <div className="p-4 rounded-[20px] bg-rose-500/15 text-rose-200 text-xs space-y-2">
               <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-700" />
-                <span className="font-semibold">{error}</span>
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                <span>{error}</span>
               </div>
 
               {isRecursionError && (
-                <div className="pt-2 border-t border-rose-200 flex items-center justify-between">
-                  <span className="font-mono text-[11px] text-stone-700">
+                <div className="pt-2 border-t border-rose-500/20 flex items-center justify-between">
+                  <span className="text-xs text-[#B9A8C9]">
                     Fix database policy recursion:
                   </span>
                   <button
                     type="button"
                     onClick={handleCopyFix}
-                    className="px-2.5 py-1 rounded-lg bg-[#E05338] text-white font-mono text-[11px] font-bold border border-stone-900 shadow-brutal-sm flex items-center gap-1 cursor-pointer"
+                    className="btn-secondary text-xs py-1 px-2.5"
                   >
-                    {copiedFixSql ? (
-                      <>
-                        <Check className="w-3 h-3 stroke-[3]" /> Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" /> Copy RLS Fix
-                      </>
-                    )}
+                    {copiedFixSql ? 'Copied!' : 'Copy RLS Fix'}
                   </button>
                 </div>
               )}
@@ -386,54 +344,50 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3.5 rounded-2xl border-2 border-stone-900 text-white font-black text-base shadow-brutal shadow-brutal-hover flex items-center justify-center gap-2 transition disabled:opacity-40 cursor-pointer ${
-              mode === 'signup'
-                ? 'bg-[#E05338] hover:bg-[#c9452c]'
-                : 'bg-[#3D8F70] hover:bg-[#347b60]'
-            }`}
+            className="w-full btn-primary py-3.5 mt-2"
           >
             {loading ? (
               <span>{mode === 'signup' ? 'Creating account...' : 'Verifying...'}</span>
             ) : mode === 'signup' ? (
               <>
                 <span>Create Admin Account</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                <ArrowRight className="w-4 h-4" />
               </>
             ) : (
               <>
-                <span>Sign In to Dashboard</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                <span>Sign in to Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
         {/* Footer switch prompt */}
-        <div className="pt-2 text-center text-xs font-mono text-stone-600">
+        <div className="pt-1 text-center text-xs text-[#B9A8C9]">
           {mode === 'signin' ? (
             <span>
-              Don't have an admin account?{' '}
+              Need an admin account?{' '}
               <button
                 type="button"
                 onClick={() => {
                   setMode('signup');
                   setError(null);
                 }}
-                className="font-bold underline text-stone-900 hover:text-[#E05338] cursor-pointer"
+                className="font-semibold text-[#FF6B4A] hover:underline cursor-pointer"
               >
                 Create one now
               </button>
             </span>
           ) : (
             <span>
-              Already registered as admin?{' '}
+              Already registered?{' '}
               <button
                 type="button"
                 onClick={() => {
                   setMode('signin');
                   setError(null);
                 }}
-                className="font-bold underline text-stone-900 hover:text-[#3D8F70] cursor-pointer"
+                className="font-semibold text-[#FF6B4A] hover:underline cursor-pointer"
               >
                 Sign in
               </button>
@@ -441,10 +395,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
           )}
         </div>
       </div>
-
-      <p className="font-mono text-xs text-stone-500 text-center mt-6">
-        Protected with PostgreSQL Row Level Security & Supabase Auth
-      </p>
     </div>
   );
 };
